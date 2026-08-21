@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import BrandLogo from './components/BrandLogo.vue'
 import TaskForm from './components/TaskForm.vue'
 import TaskList from './components/TaskList.vue'
 import Stopwatch from './components/Stopwatch.vue'
@@ -20,7 +21,7 @@ initAlarmWatcher()
   <div class="app-shell">
     <header class="header">
       <div>
-        <p class="brand">Tick List</p>
+        <BrandLogo />
         <h1>{{ mode === 'stopwatch' ? 'Stopwatch' : 'Task timer tracker' }}</h1>
         <p class="lead">
           <template v-if="mode === 'stopwatch'">
@@ -110,16 +111,6 @@ initAlarmWatcher()
   z-index: 1;
   max-width: 880px;
   margin: 0 auto 1.25rem;
-}
-
-.brand {
-  margin: 0 0 0.35rem;
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--accent);
 }
 
 .header h1 {

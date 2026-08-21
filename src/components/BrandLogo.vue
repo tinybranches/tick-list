@@ -1,0 +1,131 @@
+<script setup>
+defineProps({
+  title: {
+    type: String,
+    default: 'Tick List',
+  },
+})
+</script>
+
+<template>
+  <div class="brand-logo" :aria-label="title">
+    <svg
+      class="mark"
+      viewBox="0 0 64 64"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="brand-shell" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#2a1b3d" />
+          <stop offset="0.55" stop-color="#16101f" />
+          <stop offset="1" stop-color="#0a0710" />
+        </linearGradient>
+        <radialGradient
+          id="brand-bloom"
+          cx="0"
+          cy="0"
+          r="1"
+          gradientUnits="userSpaceOnUse"
+          gradientTransform="translate(42 16) rotate(110) scale(34 28)"
+        >
+          <stop stop-color="#a855f7" stop-opacity="0.55" />
+          <stop offset="1" stop-color="#a855f7" stop-opacity="0" />
+        </radialGradient>
+        <linearGradient id="brand-rim" x1="12" y1="10" x2="52" y2="54" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#f0e6ff" />
+          <stop offset="0.4" stop-color="#c9a0ff" />
+          <stop offset="1" stop-color="#7c5cbf" />
+        </linearGradient>
+        <linearGradient id="brand-face" x1="20" y1="18" x2="46" y2="48" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#241833" />
+          <stop offset="1" stop-color="#120b1a" />
+        </linearGradient>
+        <linearGradient id="brand-tick" x1="20" y1="36" x2="46" y2="22" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#d8b4ff" />
+          <stop offset="0.5" stop-color="#c9a0ff" />
+          <stop offset="1" stop-color="#8be3c4" />
+        </linearGradient>
+        <linearGradient id="brand-hand" x1="32" y1="20" x2="32" y2="34" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#8be3c4" />
+          <stop offset="1" stop-color="#c9a0ff" />
+        </linearGradient>
+      </defs>
+
+      <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#brand-shell)" />
+      <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#brand-bloom)" />
+      <rect
+        x="2.75"
+        y="2.75"
+        width="58.5"
+        height="58.5"
+        rx="17.25"
+        stroke="#dcbeff"
+        stroke-opacity="0.22"
+      />
+
+      <circle cx="32" cy="33" r="20.5" stroke="url(#brand-rim)" stroke-width="2.4" />
+      <circle cx="32" cy="33" r="17.2" fill="url(#brand-face)" />
+      <circle cx="32" cy="33" r="17.2" stroke="#c9a0ff" stroke-opacity="0.18" />
+
+      <g stroke="#c9a0ff" stroke-linecap="round" opacity="0.55">
+        <path d="M32 15.4v2.6" stroke-width="1.8" />
+        <path d="M32 48v2.6" stroke-width="1.4" />
+        <path d="M46.8 33h2.6" stroke-width="1.4" />
+        <path d="M14.6 33h2.6" stroke-width="1.4" />
+        <path d="M42.9 22.1l1.8-1.8" stroke-width="1.2" />
+        <path d="M19.3 45.7l1.8-1.8" stroke-width="1.2" />
+        <path d="M42.9 43.9l1.8 1.8" stroke-width="1.2" />
+        <path d="M19.3 20.3l1.8 1.8" stroke-width="1.2" />
+      </g>
+
+      <rect x="29.2" y="7.2" width="5.6" height="5" rx="1.4" fill="#c9a0ff" fill-opacity="0.85" />
+      <rect x="30.2" y="5.2" width="3.6" height="2.4" rx="1" fill="#8be3c4" />
+
+      <path d="M32 33V21.5" stroke="url(#brand-hand)" stroke-width="2.2" stroke-linecap="round" />
+      <circle cx="32" cy="33" r="2.1" fill="#8be3c4" />
+
+      <path
+        d="M22.2 33.4 28.6 39.6 42.2 24.2"
+        stroke="url(#brand-tick)"
+        stroke-width="3.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+
+      <g fill="#c9a0ff" fill-opacity="0.35">
+        <rect x="47.5" y="40.5" width="7" height="1.5" rx="0.75" />
+        <rect x="47.5" y="44" width="5.2" height="1.5" rx="0.75" />
+        <rect x="47.5" y="47.5" width="6" height="1.5" rx="0.75" />
+      </g>
+    </svg>
+
+    <span class="wordmark">{{ title }}</span>
+  </div>
+</template>
+
+<style scoped>
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0 0 0.9rem;
+}
+
+.mark {
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 8px 20px rgba(88, 28, 135, 0.45));
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+</style>
