@@ -31,7 +31,14 @@ function formatParts(ms) {
 }
 
 function onRateInput(event) {
-  store.setHourlyRate(event.target.value)
+  const input = event.target
+  const raw = input.value.replace(/\D/g, '').slice(0, 3)
+  let next = 0
+  if (raw && !/^0+$/.test(raw)) {
+    next = Math.min(999, Number.parseInt(raw.replace(/^0+/, ''), 10) || 0)
+  }
+  store.setHourlyRate(next)
+  input.value = String(next)
 }
 </script>
 
@@ -47,9 +54,11 @@ function onRateInput(event) {
         <span class="rate-prefix">$</span>
         <input
           class="rate-input"
-          type="number"
-          min="0"
-          step="0.01"
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="3"
+          autocomplete="off"
           :value="hourlyRate"
           aria-label="Hourly rate"
           @input="onRateInput"
@@ -210,7 +219,7 @@ function onRateInput(event) {
 }
 
 .rate-input {
-  width: 4.2rem;
+  width: 3.2rem;
   border: none;
   background: transparent;
   color: var(--accent);

@@ -23,6 +23,15 @@ export function costForMs(ms, hourlyRate) {
   return (ms / MS_PER_HOUR) * rate
 }
 
+/** Integer $/hr from 0 to 999. No leading-zero padding (0, 10, 100 OK; 000 / 007 → 0 / 7). */
+export function normalizeHourlyRate(value) {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  if (!digits || /^0+$/.test(digits)) return 0
+  const n = Number.parseInt(digits.replace(/^0+/, ''), 10)
+  if (!Number.isFinite(n) || n < 0) return 0
+  return Math.min(999, n)
+}
+
 export function formatMoney(amount) {
   const n = Number(amount) || 0
   const abs = Math.abs(n)
@@ -166,8 +175,7 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   }
 
   function setHourlyRate(value) {
-    const n = Number(value)
-    hourlyRate.value = Number.isFinite(n) && n >= 0 ? n : 0
+    hourlyRate.value = normalizeHourlyRate(value)
     persist()
   }
 
@@ -176,8 +184,7 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     if (!saved) return
 
     pricingEnabled.value = Boolean(saved.pricingEnabled)
-    const rate = Number(saved.hourlyRate)
-    hourlyRate.value = Number.isFinite(rate) && rate >= 0 ? rate : 0
+    hourlyRate.value = normalizeHourlyRate(saved.hourlyRate)
 
     laps.value = Array.isArray(saved.laps)
       ? saved.laps.map((row) => ({
