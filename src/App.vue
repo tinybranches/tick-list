@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import BrandLogo from './components/BrandLogo.vue'
 import TaskForm from './components/TaskForm.vue'
 import TaskList from './components/TaskList.vue'
@@ -9,11 +9,31 @@ import { useStopwatchStore } from './stores/stopwatch'
 import { initAlarmWatcher } from './composables/useAlarm'
 import { storeToRefs } from 'pinia'
 
-const mode = ref('tasks') // 'tasks' | 'stopwatch'
+const MODE_KEY = 'tick-list-mode'
+
+function loadMode() {
+  try {
+    const saved = localStorage.getItem(MODE_KEY)
+    return saved === 'stopwatch' ? 'stopwatch' : 'tasks'
+  } catch {
+    return 'tasks'
+  }
+}
+
+const mode = ref(loadMode()) // 'tasks' | 'stopwatch'
 const store = useTasksStore()
 const stopwatch = useStopwatchStore()
 const { activeCount } = storeToRefs(store)
 const { running: stopwatchRunning } = storeToRefs(stopwatch)
+
+watch(mode, (value) => {
+  try {
+    localStorage.setItem(MODE_KEY, value)
+  } catch {
+    /* ignore quota / private mode */
+  }
+})
+
 initAlarmWatcher()
 </script>
 
