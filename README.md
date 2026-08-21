@@ -39,17 +39,20 @@ No backend — everything runs in the browser.
 src/
   App.vue                 # Layout and Tasks / Stopwatch modes
   components/
-    TaskForm.vue          # Create task + duration wheels
+    TaskForm.vue          # Create task + duration (mechanical / slider)
     TaskList.vue          # Active / Archive tabs
     TaskItem.vue          # Task controls
     Stopwatch.vue         # Stopwatch UI + pricing toggle
-    WheelPicker.vue       # Scrollable hours / minutes picker
+    BrandLogo.vue         # Mark + wordmark
+    WheelPicker.vue       # iOS-style hours / minutes slider
   stores/
     tasks.js              # Task timers, archive, persistence
     stopwatch.js          # Stopwatch, laps, pricing
   composables/
     useAlarm.js           # Alarm playback + duration formatting
   style.css               # Global theme tokens
+  assets/
+    logo-mark.svg         # Brand mark
 ```
 
 ## Setup
