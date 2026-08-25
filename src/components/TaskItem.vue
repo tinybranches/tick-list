@@ -1,13 +1,15 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useTasksStore } from '../stores/tasks'
 import { formatDuration, unlockAudio } from '../composables/useAlarm'
+import DeleteTaskDialog from './DeleteTaskDialog.vue'
 
 const props = defineProps({
   task: { type: Object, required: true },
 })
 
 const store = useTasksStore()
+const confirmOpen = ref(false)
 
 const progress = computed(() => {
   if (!props.task.durationMs) return 0
@@ -35,6 +37,24 @@ function onToggleRun() {
 function onAdd(ms) {
   unlockAudio()
   store.addTime(props.task.id, ms)
+}
+
+function openDeleteConfirm() {
+  confirmOpen.value = true
+}
+
+function cancelDelete() {
+  confirmOpen.value = false
+}
+
+function confirmDelete() {
+  store.removeTask(props.task.id)
+  confirmOpen.value = false
+}
+
+function archiveInstead() {
+  store.archiveTask(props.task.id)
+  confirmOpen.value = false
 }
 </script>
 
@@ -101,14 +121,23 @@ function onAdd(ms) {
 
         <button type="button" class="btn ghost" @click="store.archiveTask(task.id)">Archive</button>
 
-        <button type="button" class="btn danger" @click="store.removeTask(task.id)">Delete</button>
+        <button type="button" class="btn danger" @click="openDeleteConfirm">Delete</button>
       </template>
 
       <template v-else>
         <button type="button" class="btn" @click="store.restoreTask(task.id)">Restore</button>
-        <button type="button" class="btn danger" @click="store.removeTask(task.id)">Delete</button>
+        <button type="button" class="btn danger" @click="openDeleteConfirm">Delete</button>
       </template>
     </div>
+
+    <DeleteTaskDialog
+      :open="confirmOpen"
+      :title="task.title"
+      :offer-archive="!task.archived"
+      @cancel="cancelDelete"
+      @archive="archiveInstead"
+      @delete="confirmDelete"
+    />
   </article>
 </template>
 
