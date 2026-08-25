@@ -107,6 +107,13 @@ export const useTasksStore = defineStore('tasks', () => {
       activeTasks.value.filter((t) => t.enabled && t.status === 'running').length,
   )
 
+  const runningTaskId = computed(() => {
+    const running = tasks.value.find(
+      (t) => !t.archived && t.enabled && t.status === 'running',
+    )
+    return running?.id ?? null
+  })
+
   const alarmingTasks = computed(() =>
     tasks.value.filter((t) => !t.archived && t.alarming),
   )
@@ -242,6 +249,11 @@ export const useTasksStore = defineStore('tasks', () => {
     const task = tasks.value.find((t) => t.id === id)
     if (!task || task.archived || !task.enabled) return
     if (task.durationMs <= 0) return
+    const otherRunning = tasks.value.some(
+      (t) =>
+        t.id !== id && !t.archived && t.enabled && t.status === 'running',
+    )
+    if (otherRunning) return
     if (task.remainingMs <= 0) {
       task.remainingMs = task.durationMs
     }
@@ -338,13 +350,15 @@ export const useTasksStore = defineStore('tasks', () => {
   }
 
   function hydrateRunning() {
-    if (
-      tasks.value.some(
-        (t) => !t.archived && t.enabled && t.status === 'running',
-      )
-    ) {
-      ensureTicker()
+    const running = tasks.value.filter(
+      (t) => !t.archived && t.enabled && t.status === 'running',
+    )
+    if (running.length > 1) {
+      for (let i = 1; i < running.length; i += 1) {
+        running[i].status = 'paused'
+      }
     }
+    if (running.length > 0) ensureTicker()
   }
 
   hydrateRunning()
@@ -370,6 +384,7 @@ export const useTasksStore = defineStore('tasks', () => {
     archivedTasks,
     visibleTasks,
     activeCount,
+    runningTaskId,
     alarmingTasks,
     addTask,
     removeTask,

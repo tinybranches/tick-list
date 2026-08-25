@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useTasksStore } from '../stores/tasks'
 import { formatDuration, unlockAudio } from '../composables/useAlarm'
 import DeleteTaskDialog from './DeleteTaskDialog.vue'
@@ -9,6 +10,7 @@ const props = defineProps({
 })
 
 const store = useTasksStore()
+const { runningTaskId } = storeToRefs(store)
 const confirmOpen = ref(false)
 
 const MIN_SUBTRACT_MS = 5 * 60_000
@@ -27,6 +29,12 @@ const canAdd5Min = computed(
     props.task.enabled &&
     props.task.remainingMs + 300_000 <= MAX_REMAINING_MS,
 )
+
+const canToggleRun = computed(() => {
+  if (!props.task.enabled) return false
+  if (props.task.status === 'running') return true
+  return !runningTaskId.value
+})
 
 const progress = computed(() => {
   if (!props.task.durationMs) return 0
@@ -103,7 +111,12 @@ function archiveInstead() {
         <button
           type="button"
           class="btn"
-          :disabled="!task.enabled"
+          :disabled="!canToggleRun"
+          :title="
+            !canToggleRun && task.status !== 'running'
+              ? 'Pause or finish the running task first'
+              : undefined
+          "
           @click="onToggleRun"
         >
           {{ task.status === 'running' ? 'Pause' : 'Start' }}
