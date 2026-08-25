@@ -11,6 +11,23 @@ const props = defineProps({
 const store = useTasksStore()
 const confirmOpen = ref(false)
 
+const MIN_SUBTRACT_MS = 5 * 60_000
+const MAX_REMAINING_MS = 22 * 60 * 60 * 1000
+
+const canSubtractTime = computed(
+  () => props.task.enabled && props.task.remainingMs >= MIN_SUBTRACT_MS,
+)
+
+const canAdd1Min = computed(
+  () => props.task.enabled && props.task.remainingMs < MAX_REMAINING_MS,
+)
+
+const canAdd5Min = computed(
+  () =>
+    props.task.enabled &&
+    props.task.remainingMs + 300_000 <= MAX_REMAINING_MS,
+)
+
 const progress = computed(() => {
   if (!props.task.durationMs) return 0
   return Math.min(
@@ -92,10 +109,36 @@ function archiveInstead() {
           {{ task.status === 'running' ? 'Pause' : 'Start' }}
         </button>
 
-        <button type="button" class="btn ghost" :disabled="!task.enabled" @click="onAdd(60_000)">
+        <button
+          type="button"
+          class="btn ghost"
+          :disabled="!canSubtractTime"
+          @click="onAdd(-60_000)"
+        >
+          −1 min
+        </button>
+        <button
+          type="button"
+          class="btn ghost"
+          :disabled="!canSubtractTime"
+          @click="onAdd(-300_000)"
+        >
+          −5 min
+        </button>
+        <button
+          type="button"
+          class="btn ghost"
+          :disabled="!canAdd1Min"
+          @click="onAdd(60_000)"
+        >
           +1 min
         </button>
-        <button type="button" class="btn ghost" :disabled="!task.enabled" @click="onAdd(300_000)">
+        <button
+          type="button"
+          class="btn ghost"
+          :disabled="!canAdd5Min"
+          @click="onAdd(300_000)"
+        >
           +5 min
         </button>
 

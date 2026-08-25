@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
 const STORAGE_KEY = 'tick-list-tasks'
+const MIN_SUBTRACT_MS = 5 * 60_000
+const MAX_REMAINING_MS = 22 * 60 * 60 * 1000
 
 function uid() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -266,12 +268,36 @@ export const useTasksStore = defineStore('tasks', () => {
 
   function addTime(id, ms) {
     const task = tasks.value.find((t) => t.id === id)
-    if (!task || task.archived || ms <= 0) return
-    task.remainingMs += ms
-    task.durationMs += ms
-    if (task.status === 'finished') {
-      task.status = 'paused'
-      task.alarming = false
+    if (!task || task.archived || !ms) return
+
+    const delta = Number(ms) || 0
+    if (!delta) return
+
+    if (delta > 0) {
+      if (task.remainingMs >= MAX_REMAINING_MS) return
+      const room = MAX_REMAINING_MS - task.remainingMs
+      const add = Math.min(delta, room)
+      if (add <= 0) return
+      task.remainingMs += add
+      task.durationMs += add
+      if (task.status === 'finished') {
+        task.status = 'paused'
+        task.alarming = false
+      }
+    } else {
+      if (task.remainingMs < MIN_SUBTRACT_MS) return
+      const nextRemaining = Math.max(0, task.remainingMs + delta)
+      const cut = task.remainingMs - nextRemaining
+      task.remainingMs = nextRemaining
+      task.durationMs = Math.max(nextRemaining, task.durationMs - cut)
+      if (task.remainingMs <= 0) {
+        task.remainingMs = 0
+        if (task.status === 'running') {
+          task.status = 'finished'
+          task.alarming = true
+          stopTickerIfIdle()
+        }
+      }
     }
     persist()
   }
