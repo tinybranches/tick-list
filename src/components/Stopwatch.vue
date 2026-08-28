@@ -81,7 +81,7 @@ function onRateInput(event) {
     </div>
 
     <div class="face" aria-live="polite">
-      <span class="main">{{ display.minutes }}:{{ display.seconds }}</span>
+      <span class="main">{{ display.main }}</span>
       <span class="centis">.{{ display.centis }}</span>
     </div>
 

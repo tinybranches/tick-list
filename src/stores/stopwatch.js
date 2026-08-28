@@ -6,14 +6,32 @@ const MS_PER_HOUR = 3_600_000
 
 export function formatStopwatch(ms) {
   const total = Math.max(0, Math.floor(ms))
-  const minutes = Math.floor(total / 60000)
-  const seconds = Math.floor((total % 60000) / 1000)
+  const hours = Math.floor(total / 3_600_000)
+  const minutes = Math.floor((total % 3_600_000) / 60_000)
+  const seconds = Math.floor((total % 60_000) / 1000)
   const centis = Math.floor((total % 1000) / 10)
+  const pad2 = (n) => String(n).padStart(2, '0')
+
+  if (hours > 0) {
+    return {
+      hours: pad2(hours),
+      minutes: pad2(minutes),
+      seconds: pad2(seconds),
+      centis: pad2(centis),
+      hasHours: true,
+      main: `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`,
+      text: `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}.${pad2(centis)}`,
+    }
+  }
+
   return {
-    minutes: String(minutes).padStart(2, '0'),
-    seconds: String(seconds).padStart(2, '0'),
-    centis: String(centis).padStart(2, '0'),
-    text: `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centis).padStart(2, '0')}`,
+    hours: null,
+    minutes: pad2(minutes),
+    seconds: pad2(seconds),
+    centis: pad2(centis),
+    hasHours: false,
+    main: `${pad2(minutes)}:${pad2(seconds)}`,
+    text: `${pad2(minutes)}:${pad2(seconds)}.${pad2(centis)}`,
   }
 }
 
