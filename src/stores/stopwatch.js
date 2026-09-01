@@ -2,7 +2,26 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
 const STORAGE_KEY = 'tick-list-stopwatch'
+const REPORTS_STORAGE_KEY = 'tick-list-stopwatch-reports'
 const MS_PER_HOUR = 3_600_000
+const EOD_MINUTES = 23 * 60 + 59
+
+export function localDateKey(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+export function formatReportDate(dateKey) {
+  const [y, m, d] = String(dateKey).split('-').map(Number)
+  if (!y || !m || !d) return dateKey
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
 
 export function formatStopwatch(ms) {
   const total = Math.max(0, Math.floor(ms))
@@ -80,6 +99,34 @@ function saveState(payload) {
   }
 }
 
+function loadReports() {
+  try {
+    const raw = localStorage.getItem(REPORTS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveReports(reports) {
+  try {
+    localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(reports))
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function shouldAutoReport(sessionDate, now = new Date()) {
+  if (!sessionDate) return false
+  const today = localDateKey(now)
+  const minutes = now.getHours() * 60 + now.getMinutes()
+  if (today > sessionDate) return true
+  if (today === sessionDate && minutes >= EOD_MINUTES) return true
+  return false
+}
+
 export const useStopwatchStore = defineStore('stopwatch', () => {
   const elapsedMs = ref(0)
   const running = ref(false)
@@ -88,12 +135,15 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   const hourlyRate = ref(0)
   const netPricingEnabled = ref(false)
   const netHourlyRate = ref(0)
+  const sessionDate = ref(null)
+  const reports = ref([])
 
   let baseElapsed = 0
   let runStartedAt = null
   let rafId = 0
   let persistTimer = null
   let ready = false
+  let stoppedAt = null
 
   const display = computed(() => formatStopwatch(elapsedMs.value))
 
@@ -116,6 +166,10 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     Math.max(0, totalCost.value - netTotalCost.value),
   )
 
+  const canSaveDailyReport = computed(
+    () => elapsedMs.value > 0 && !running.value,
+  )
+
   function currentElapsed() {
     if (running.value && runStartedAt != null) {
       return baseElapsed + (Date.now() - runStartedAt)
@@ -123,8 +177,19 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     return baseElapsed
   }
 
+  function touchSessionDate() {
+    if (elapsedMs.value > 0 && !sessionDate.value) {
+      sessionDate.value = localDateKey()
+    }
+  }
+
+  function persistReports() {
+    saveReports(reports.value)
+  }
+
   function persist() {
     if (!ready) return
+    touchSessionDate()
     saveState({
       baseElapsed: running.value ? currentElapsed() : baseElapsed,
       runStartedAt: running.value ? Date.now() : null,
@@ -134,6 +199,81 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
       hourlyRate: hourlyRate.value,
       netPricingEnabled: netPricingEnabled.value,
       netHourlyRate: netHourlyRate.value,
+      sessionDate: sessionDate.value,
+      stoppedAt,
+    })
+  }
+
+  function buildDailyReport({ dateKey, manual }) {
+    const ms = currentElapsed()
+    const full = pricingEnabled.value ? costForMs(ms, hourlyRate.value) : 0
+    const net =
+      pricingEnabled.value && netPricingEnabled.value
+        ? costForMs(ms, netHourlyRate.value)
+        : 0
+    const rateDiff =
+      pricingEnabled.value && netPricingEnabled.value
+        ? Math.max(0, hourlyRate.value - netHourlyRate.value)
+        : 0
+
+    return {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      date: dateKey,
+      createdAt: Date.now(),
+      manual: Boolean(manual),
+      elapsedMs: ms,
+      pricingEnabled: pricingEnabled.value,
+      hourlyRate: hourlyRate.value,
+      netPricingEnabled: netPricingEnabled.value,
+      netHourlyRate: netHourlyRate.value,
+      earnedFull: full,
+      earnedNet: net,
+      rateDiff,
+      accumulatedDiff: Math.max(0, full - net),
+    }
+  }
+
+  function clearSession() {
+    running.value = false
+    stopTicker()
+    runStartedAt = null
+    baseElapsed = 0
+    elapsedMs.value = 0
+    laps.value = []
+    sessionDate.value = null
+    stoppedAt = null
+    persist()
+  }
+
+  function archiveDailyReport({ manual = false, dateKey } = {}) {
+    if (elapsedMs.value <= 0) return false
+
+    if (running.value) stop()
+
+    const reportDate = dateKey || sessionDate.value || localDateKey()
+    reports.value.unshift(buildDailyReport({ dateKey: reportDate, manual }))
+    persistReports()
+    clearSession()
+    return true
+  }
+
+  function saveDailyReport() {
+    return archiveDailyReport({ manual: true })
+  }
+
+  function deleteReport(id) {
+    const next = reports.value.filter((row) => row.id !== id)
+    if (next.length === reports.value.length) return
+    reports.value = next
+    persistReports()
+  }
+
+  function checkAutoDailyReport() {
+    if (!ready || elapsedMs.value <= 0 || !sessionDate.value) return false
+    if (!shouldAutoReport(sessionDate.value)) return false
+    return archiveDailyReport({
+      manual: false,
+      dateKey: sessionDate.value,
     })
   }
 
@@ -161,6 +301,10 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
 
   function start() {
     if (running.value) return
+    if (elapsedMs.value === 0) {
+      sessionDate.value = localDateKey()
+      stoppedAt = null
+    }
     baseElapsed = elapsedMs.value
     runStartedAt = Date.now()
     running.value = true
@@ -174,18 +318,14 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     elapsedMs.value = baseElapsed
     runStartedAt = null
     running.value = false
+    stoppedAt = Date.now()
+    touchSessionDate()
     stopTicker()
     persist()
   }
 
   function reset() {
-    running.value = false
-    stopTicker()
-    runStartedAt = null
-    baseElapsed = 0
-    elapsedMs.value = 0
-    laps.value = []
-    persist()
+    clearSession()
   }
 
   function lap() {
@@ -236,8 +376,20 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   }
 
   function hydrate() {
+    reports.value = loadReports()
+
     const saved = loadState()
     if (!saved) return
+
+    sessionDate.value =
+      typeof saved.sessionDate === 'string' ? saved.sessionDate : null
+    stoppedAt =
+      typeof saved.stoppedAt === 'number' ? saved.stoppedAt : null
+
+    if (!sessionDate.value && (Number(saved.baseElapsed) || 0) > 0) {
+      const anchor = stoppedAt ?? saved.runStartedAt ?? Date.now()
+      sessionDate.value = localDateKey(new Date(anchor))
+    }
 
     pricingEnabled.value = Boolean(saved.pricingEnabled)
     hourlyRate.value = normalizeHourlyRate(saved.hourlyRate)
@@ -281,6 +433,7 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   hydrate()
   ready = true
   persist()
+  checkAutoDailyReport()
 
   watch(laps, () => persist(), { deep: true })
   watch(pricingEnabled, () => persist())
@@ -290,6 +443,10 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
 
   if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', persist)
+    window.setInterval(() => checkAutoDailyReport(), 30_000)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkAutoDailyReport()
+    })
   }
 
   return {
@@ -300,15 +457,20 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     hourlyRate,
     netPricingEnabled,
     netHourlyRate,
+    sessionDate,
+    reports,
     display,
     totalCost,
     netTotalCost,
     hourlyRateDiff,
     accumulatedDiff,
+    canSaveDailyReport,
     start,
     stop,
     reset,
     lap,
+    saveDailyReport,
+    deleteReport,
     setPricingEnabled,
     setHourlyRate,
     setNetPricingEnabled,

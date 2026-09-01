@@ -6,6 +6,7 @@ import {
   formatStopwatch,
   useStopwatchStore,
 } from '../stores/stopwatch'
+import StopwatchReports from './StopwatchReports.vue'
 
 const store = useStopwatchStore()
 const {
@@ -21,6 +22,7 @@ const {
   netTotalCost,
   hourlyRateDiff,
   accumulatedDiff,
+  canSaveDailyReport,
 } = storeToRefs(store)
 
 const canLap = computed(() => {
@@ -162,6 +164,34 @@ function onNetRateInput(event) {
           <span class="cost-diff">{{ formatMoney(accumulatedDiff) }}</span>
         </div>
       </template>
+
+      <button
+        type="button"
+        class="btn report"
+        :disabled="!canSaveDailyReport"
+        @click="store.saveDailyReport()"
+      >
+        Daily report
+      </button>
+      <p class="report-hint">
+        Saves this session to the archive and resets the stopwatch. If you leave
+        it until 23:59 without resetting, it archives automatically with that
+        day’s date.
+      </p>
+    </div>
+
+    <div v-else-if="canSaveDailyReport || elapsedMs > 0" class="report-panel">
+      <button
+        type="button"
+        class="btn report"
+        :disabled="!canSaveDailyReport"
+        @click="store.saveDailyReport()"
+      >
+        Daily report
+      </button>
+      <p class="report-hint">
+        Saves elapsed time to the archive and resets the stopwatch.
+      </p>
     </div>
 
     <div class="controls">
@@ -211,6 +241,8 @@ function onNetRateInput(event) {
         <span v-if="pricingEnabled">{{ formatMoney(row.totalCost) }}</span>
       </div>
     </div>
+
+    <StopwatchReports />
   </section>
 </template>
 
@@ -538,6 +570,49 @@ function onNetRateInput(event) {
   font-weight: 600;
   color: #ff9eaa;
   letter-spacing: 0.02em;
+}
+
+.btn.report {
+  width: 100%;
+  margin-top: 0.35rem;
+  appearance: none;
+  border: 1px solid rgba(139, 227, 196, 0.35);
+  border-radius: 10px;
+  padding: 0.72rem 1rem;
+  background: rgba(139, 227, 196, 0.12);
+  color: var(--ok);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+}
+
+.btn.report:hover:not(:disabled) {
+  background: rgba(139, 227, 196, 0.2);
+  border-color: rgba(139, 227, 196, 0.5);
+}
+
+.btn.report:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.report-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.report-panel {
+  display: grid;
+  gap: 0.45rem;
+  width: min(100%, 420px);
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  background: rgba(10, 7, 16, 0.45);
 }
 
 .controls {
