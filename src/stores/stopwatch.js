@@ -204,8 +204,22 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     })
   }
 
-  function buildDailyReport({ dateKey, manual }) {
-    const ms = currentElapsed()
+  function persistClearedSession() {
+    saveState({
+      baseElapsed: 0,
+      runStartedAt: null,
+      running: false,
+      laps: [],
+      pricingEnabled: pricingEnabled.value,
+      hourlyRate: hourlyRate.value,
+      netPricingEnabled: netPricingEnabled.value,
+      netHourlyRate: netHourlyRate.value,
+      sessionDate: null,
+      stoppedAt: null,
+    })
+  }
+
+  function buildDailyReport({ dateKey, manual, ms = currentElapsed() }) {
     const full = pricingEnabled.value ? costForMs(ms, hourlyRate.value) : 0
     const net =
       pricingEnabled.value && netPricingEnabled.value
@@ -242,16 +256,24 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     laps.value = []
     sessionDate.value = null
     stoppedAt = null
-    persist()
+    if (ready) persistClearedSession()
   }
 
   function archiveDailyReport({ manual = false, dateKey } = {}) {
-    if (elapsedMs.value <= 0) return false
+    if (running.value) {
+      baseElapsed = currentElapsed()
+      elapsedMs.value = baseElapsed
+      running.value = false
+      stopTicker()
+      runStartedAt = null
+      stoppedAt = Date.now()
+    }
 
-    if (running.value) stop()
+    const ms = baseElapsed
+    if (ms <= 0) return false
 
     const reportDate = dateKey || sessionDate.value || localDateKey()
-    reports.value.unshift(buildDailyReport({ dateKey: reportDate, manual }))
+    reports.value.unshift(buildDailyReport({ dateKey: reportDate, manual, ms }))
     persistReports()
     clearSession()
     return true
@@ -269,7 +291,9 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   }
 
   function checkAutoDailyReport() {
-    if (!ready || elapsedMs.value <= 0 || !sessionDate.value) return false
+    if (!ready || !sessionDate.value) return false
+    const ms = currentElapsed()
+    if (ms <= 0) return false
     if (!shouldAutoReport(sessionDate.value)) return false
     return archiveDailyReport({
       manual: false,
