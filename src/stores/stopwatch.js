@@ -23,6 +23,42 @@ export function formatReportDate(dateKey) {
   })
 }
 
+export function monthKeyFromDateKey(dateKey) {
+  return String(dateKey).slice(0, 7)
+}
+
+export function formatMonthLabel(monthKey) {
+  const [y, m] = String(monthKey).split('-').map(Number)
+  if (!y || !m) return monthKey
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+  })
+}
+
+export function sumReportAmounts(reportList) {
+  return reportList.reduce(
+    (acc, report) => {
+      if (!report.pricingEnabled) return acc
+      acc.hasFull = true
+      acc.earnedFull += Number(report.earnedFull) || 0
+      if (report.netPricingEnabled) {
+        acc.hasNet = true
+        acc.earnedNet += Number(report.earnedNet) || 0
+        acc.accumulatedDiff += Number(report.accumulatedDiff) || 0
+      }
+      return acc
+    },
+    {
+      earnedFull: 0,
+      earnedNet: 0,
+      accumulatedDiff: 0,
+      hasFull: false,
+      hasNet: false,
+    },
+  )
+}
+
 export function formatStopwatch(ms) {
   const total = Math.max(0, Math.floor(ms))
   const hours = Math.floor(total / 3_600_000)
