@@ -86,6 +86,8 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   const laps = ref([])
   const pricingEnabled = ref(false)
   const hourlyRate = ref(0)
+  const netPricingEnabled = ref(false)
+  const netHourlyRate = ref(0)
 
   let baseElapsed = 0
   let runStartedAt = null
@@ -97,6 +99,21 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
 
   const totalCost = computed(() =>
     pricingEnabled.value ? costForMs(elapsedMs.value, hourlyRate.value) : 0,
+  )
+
+  const netTotalCost = computed(() =>
+    pricingEnabled.value && netPricingEnabled.value
+      ? costForMs(elapsedMs.value, netHourlyRate.value)
+      : 0,
+  )
+
+  const hourlyRateDiff = computed(() => {
+    if (!pricingEnabled.value || !netPricingEnabled.value) return 0
+    return Math.max(0, hourlyRate.value - netHourlyRate.value)
+  })
+
+  const accumulatedDiff = computed(() =>
+    Math.max(0, totalCost.value - netTotalCost.value),
   )
 
   function currentElapsed() {
@@ -115,6 +132,8 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
       laps: laps.value,
       pricingEnabled: pricingEnabled.value,
       hourlyRate: hourlyRate.value,
+      netPricingEnabled: netPricingEnabled.value,
+      netHourlyRate: netHourlyRate.value,
     })
   }
 
@@ -176,6 +195,7 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     if (totalMs <= prevTotal) return
     const lapMs = totalMs - prevTotal
     const rate = hourlyRate.value
+    const netRate = netHourlyRate.value
     laps.value.unshift({
       id: `${Date.now()}-${laps.value.length + 1}`,
       index: laps.value.length + 1,
@@ -183,6 +203,8 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
       totalMs,
       lapCost: costForMs(lapMs, rate),
       totalCost: costForMs(totalMs, rate),
+      lapNetCost: costForMs(lapMs, netRate),
+      totalNetCost: costForMs(totalMs, netRate),
     })
     persist()
   }
@@ -194,6 +216,22 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
 
   function setHourlyRate(value) {
     hourlyRate.value = normalizeHourlyRate(value)
+    if (netHourlyRate.value > hourlyRate.value) {
+      netHourlyRate.value = hourlyRate.value
+    }
+    persist()
+  }
+
+  function setNetPricingEnabled(value) {
+    netPricingEnabled.value = Boolean(value)
+    if (!netPricingEnabled.value) netHourlyRate.value = 0
+    persist()
+  }
+
+  function setNetHourlyRate(value) {
+    const next = normalizeHourlyRate(value)
+    netHourlyRate.value =
+      hourlyRate.value > 0 ? Math.min(next, hourlyRate.value) : next
     persist()
   }
 
@@ -203,6 +241,11 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
 
     pricingEnabled.value = Boolean(saved.pricingEnabled)
     hourlyRate.value = normalizeHourlyRate(saved.hourlyRate)
+    netPricingEnabled.value = Boolean(saved.netPricingEnabled)
+    netHourlyRate.value = normalizeHourlyRate(saved.netHourlyRate)
+    if (netHourlyRate.value > hourlyRate.value) {
+      netHourlyRate.value = hourlyRate.value
+    }
 
     laps.value = Array.isArray(saved.laps)
       ? saved.laps.map((row) => ({
@@ -211,6 +254,10 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
             row.lapCost ?? costForMs(row.lapMs, hourlyRate.value),
           totalCost:
             row.totalCost ?? costForMs(row.totalMs, hourlyRate.value),
+          lapNetCost:
+            row.lapNetCost ?? costForMs(row.lapMs, netHourlyRate.value),
+          totalNetCost:
+            row.totalNetCost ?? costForMs(row.totalMs, netHourlyRate.value),
         }))
       : []
 
@@ -238,6 +285,8 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   watch(laps, () => persist(), { deep: true })
   watch(pricingEnabled, () => persist())
   watch(hourlyRate, () => persist())
+  watch(netPricingEnabled, () => persist())
+  watch(netHourlyRate, () => persist())
 
   if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', persist)
@@ -249,13 +298,20 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     laps,
     pricingEnabled,
     hourlyRate,
+    netPricingEnabled,
+    netHourlyRate,
     display,
     totalCost,
+    netTotalCost,
+    hourlyRateDiff,
+    accumulatedDiff,
     start,
     stop,
     reset,
     lap,
     setPricingEnabled,
     setHourlyRate,
+    setNetPricingEnabled,
+    setNetHourlyRate,
   }
 })
