@@ -79,27 +79,31 @@ function toggle() {
         :key="month.monthKey"
         class="month-group"
       >
-        <div v-if="month.totals.hasFull" class="summary-card monthly">
-          <p class="summary-title">Month total · {{ month.label }}</p>
-          <div class="summary-rows">
-            <div class="summary-row">
-              <span>Earned (full)</span>
-              <span>{{ formatMoney(month.totals.earnedFull) }}</span>
+        <div v-if="month.totals.hasFull" class="month-banner">
+          <div class="month-banner-head">
+            <span class="banner-badge">Month</span>
+            <span class="banner-date">{{ month.label }}</span>
+          </div>
+          <div class="banner-stats">
+            <div class="stat-chip">
+              <span class="chip-label">Full</span>
+              <span class="chip-value">{{ formatMoney(month.totals.earnedFull) }}</span>
             </div>
             <template v-if="month.totals.hasNet">
-              <div class="summary-row">
-                <span>Earned (net)</span>
-                <span class="net">{{ formatMoney(month.totals.earnedNet) }}</span>
+              <div class="stat-chip">
+                <span class="chip-label">Net</span>
+                <span class="chip-value net">{{ formatMoney(month.totals.earnedNet) }}</span>
               </div>
-              <div class="summary-row subtle">
-                <span>Accumulated diff</span>
-                <span>{{ formatMoney(month.totals.accumulatedDiff) }}</span>
+              <div class="stat-chip diff">
+                <span class="chip-label">Diff</span>
+                <span class="chip-value">{{ formatMoney(month.totals.accumulatedDiff) }}</span>
               </div>
             </template>
           </div>
         </div>
 
         <div v-for="day in month.days" :key="day.dateKey" class="day-group">
+          <div class="day-stack">
           <article
             v-for="report in day.reports"
             :key="report.id"
@@ -146,23 +150,26 @@ function toggle() {
             </div>
             <p v-else class="report-note">Price calculator was off for this session.</p>
           </article>
+          </div>
 
-          <div v-if="day.totals.hasFull" class="summary-card daily">
-            <p class="summary-title">Day total · {{ formatReportDate(day.dateKey) }}</p>
-            <div class="summary-rows">
-              <div class="summary-row">
-                <span>Earned (full)</span>
-                <span>{{ formatMoney(day.totals.earnedFull) }}</span>
-              </div>
+          <div v-if="day.totals.hasFull" class="day-total">
+            <span class="day-total-label">Day total</span>
+            <div class="day-total-stats">
+              <span class="day-stat">
+                <span class="day-stat-key">Full</span>
+                {{ formatMoney(day.totals.earnedFull) }}
+              </span>
               <template v-if="day.totals.hasNet">
-                <div class="summary-row">
-                  <span>Earned (net)</span>
-                  <span class="net">{{ formatMoney(day.totals.earnedNet) }}</span>
-                </div>
-                <div class="summary-row subtle">
-                  <span>Accumulated diff</span>
-                  <span>{{ formatMoney(day.totals.accumulatedDiff) }}</span>
-                </div>
+                <span class="day-stat-sep" aria-hidden="true">·</span>
+                <span class="day-stat">
+                  <span class="day-stat-key">Net</span>
+                  {{ formatMoney(day.totals.earnedNet) }}
+                </span>
+                <span class="day-stat-sep" aria-hidden="true">·</span>
+                <span class="day-stat diff">
+                  <span class="day-stat-key">Diff</span>
+                  {{ formatMoney(day.totals.accumulatedDiff) }}
+                </span>
               </template>
             </div>
           </div>
@@ -241,7 +248,14 @@ function toggle() {
 
 .day-group {
   display: grid;
+  gap: 0.45rem;
+}
+
+.day-stack {
+  display: grid;
   gap: 0.65rem;
+  padding-left: 0.55rem;
+  border-left: 2px solid rgba(220, 190, 255, 0.14);
 }
 
 .empty {
@@ -254,69 +268,140 @@ function toggle() {
   text-align: center;
 }
 
-.summary-card {
+.month-banner {
   display: grid;
-  gap: 0.5rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--stroke);
-  border-radius: 14px;
-  background: rgba(10, 7, 16, 0.55);
+  gap: 0.65rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    rgba(139, 124, 247, 0.18) 0%,
+    rgba(139, 124, 247, 0.06) 42%,
+    transparent 100%
+  );
+  border: none;
+  border-left: 3px solid rgba(168, 85, 247, 0.75);
 }
 
-.summary-card.monthly {
-  border-color: rgba(139, 124, 247, 0.35);
-  background:
-    radial-gradient(120% 100% at 0% 0%, rgba(139, 124, 247, 0.12), transparent 55%),
-    rgba(10, 7, 16, 0.55);
+.month-banner-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
 }
 
-.summary-card.daily {
-  border-style: dashed;
-  border-color: rgba(139, 227, 196, 0.28);
+.banner-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.28);
+  color: #e8dcff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.summary-title {
-  margin: 0;
-  font-size: 0.72rem;
+.banner-date {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.banner-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.stat-chip.diff .chip-value {
+  color: #ff9eaa;
+}
+
+.chip-label {
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-.summary-rows {
-  display: grid;
-  gap: 0.35rem;
+.chip-value {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ok);
 }
 
-.summary-row {
+.chip-value.net {
+  color: var(--accent);
+}
+
+.day-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.45rem 0.65rem 0.45rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(139, 227, 196, 0.07);
+  border-top: 1px solid rgba(139, 227, 196, 0.22);
+}
+
+.day-total-label {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ok);
+  opacity: 0.85;
+}
+
+.day-total-stats {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  margin-left: auto;
 }
 
-.summary-row span:first-child {
-  font-size: 0.72rem;
+.day-stat {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ok);
+}
+
+.day-stat.diff {
+  color: #ff9eaa;
+}
+
+.day-stat-key {
+  margin-right: 0.3rem;
+  font-family: inherit;
+  font-size: 0.58rem;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-.summary-row span:last-child {
-  font-family: var(--font-mono);
-  font-size: 0.95rem;
+.day-stat-sep {
+  color: rgba(255, 255, 255, 0.18);
   font-weight: 700;
-  color: var(--ok);
-}
-
-.summary-row.subtle span:last-child {
-  font-size: 0.86rem;
-  color: #ff9eaa;
-}
-
-.summary-row .net {
-  color: var(--accent);
 }
 
 .report-card {
