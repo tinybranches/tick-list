@@ -180,20 +180,6 @@ function onNetRateInput(event) {
       </p>
     </div>
 
-    <div v-else-if="canSaveDailyReport || elapsedMs > 0" class="report-panel">
-      <button
-        type="button"
-        class="btn report"
-        :disabled="!canSaveDailyReport"
-        @click="store.saveDailyReport()"
-      >
-        Daily report
-      </button>
-      <p class="report-hint">
-        Saves elapsed time to the archive and resets the stopwatch.
-      </p>
-    </div>
-
     <div class="controls">
       <button
         type="button"
@@ -242,7 +228,7 @@ function onNetRateInput(event) {
       </div>
     </div>
 
-    <StopwatchReports />
+    <StopwatchReports v-if="pricingEnabled" />
   </section>
 </template>
 
@@ -603,16 +589,6 @@ function onNetRateInput(event) {
   font-size: 0.72rem;
   line-height: 1.45;
   color: var(--muted);
-}
-
-.report-panel {
-  display: grid;
-  gap: 0.45rem;
-  width: min(100%, 420px);
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--stroke);
-  border-radius: 14px;
-  background: rgba(10, 7, 16, 0.45);
 }
 
 .controls {

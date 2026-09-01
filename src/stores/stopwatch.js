@@ -203,7 +203,7 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   )
 
   const canSaveDailyReport = computed(
-    () => elapsedMs.value > 0 && !running.value,
+    () => pricingEnabled.value && elapsedMs.value > 0 && !running.value,
   )
 
   function currentElapsed() {
@@ -214,7 +214,11 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   }
 
   function touchSessionDate() {
-    if (elapsedMs.value > 0 && !sessionDate.value) {
+    if (
+      pricingEnabled.value &&
+      elapsedMs.value > 0 &&
+      !sessionDate.value
+    ) {
       sessionDate.value = localDateKey()
     }
   }
@@ -296,6 +300,8 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   }
 
   function archiveDailyReport({ manual = false, dateKey } = {}) {
+    if (!pricingEnabled.value) return false
+
     if (running.value) {
       baseElapsed = currentElapsed()
       elapsedMs.value = baseElapsed
@@ -327,7 +333,7 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   }
 
   function checkAutoDailyReport() {
-    if (!ready || !sessionDate.value) return false
+    if (!ready || !pricingEnabled.value || !sessionDate.value) return false
     const ms = currentElapsed()
     if (ms <= 0) return false
     if (!shouldAutoReport(sessionDate.value)) return false
@@ -362,7 +368,7 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   function start() {
     if (running.value) return
     if (elapsedMs.value === 0) {
-      sessionDate.value = localDateKey()
+      if (pricingEnabled.value) sessionDate.value = localDateKey()
       stoppedAt = null
     }
     baseElapsed = elapsedMs.value
@@ -411,6 +417,7 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
 
   function setPricingEnabled(value) {
     pricingEnabled.value = Boolean(value)
+    if (pricingEnabled.value) touchSessionDate()
     persist()
   }
 
