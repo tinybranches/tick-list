@@ -35,6 +35,8 @@ watch(mode, (value) => {
 })
 
 initAlarmWatcher()
+
+const year = new Date().getFullYear()
 </script>
 
 <template>
@@ -86,6 +88,10 @@ initAlarmWatcher()
       </template>
       <Stopwatch v-else />
     </main>
+
+    <footer class="footer">
+      <p>© {{ year }}</p>
+    </footer>
   </div>
 </template>
 
@@ -233,6 +239,22 @@ initAlarmWatcher()
   gap: 1.25rem;
   max-width: 880px;
   margin: 0 auto;
+}
+
+.footer {
+  position: relative;
+  z-index: 1;
+  max-width: 880px;
+  margin: 2rem auto 0;
+  text-align: center;
+}
+
+.footer p {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  opacity: 0.7;
 }
 
 @keyframes drift {
