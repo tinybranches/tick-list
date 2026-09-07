@@ -275,6 +275,8 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
       date: dateKey,
       createdAt: Date.now(),
       manual: Boolean(manual),
+      archived: false,
+      archivedAt: null,
       elapsedMs: ms,
       pricingEnabled: pricingEnabled.value,
       hourlyRate: hourlyRate.value,
@@ -331,6 +333,34 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     reports.value = next
     persistReports()
   }
+
+  function findReport(id) {
+    return reports.value.find((row) => row.id === id) ?? null
+  }
+
+  function archiveReport(id) {
+    const report = findReport(id)
+    if (!report || report.archived) return
+    report.archived = true
+    report.archivedAt = Date.now()
+    persistReports()
+  }
+
+  function restoreReport(id) {
+    const report = findReport(id)
+    if (!report || !report.archived) return
+    report.archived = false
+    report.archivedAt = null
+    persistReports()
+  }
+
+  const openReports = computed(() =>
+    reports.value.filter((row) => !row.archived),
+  )
+
+  const paidReports = computed(() =>
+    reports.value.filter((row) => row.archived),
+  )
 
   function checkAutoDailyReport() {
     if (!ready || !pricingEnabled.value || !sessionDate.value) return false
@@ -443,7 +473,11 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
   }
 
   function hydrate() {
-    reports.value = loadReports()
+    reports.value = loadReports().map((row) => ({
+      ...row,
+      archived: Boolean(row.archived),
+      archivedAt: row.archivedAt ?? null,
+    }))
 
     const saved = loadState()
     if (!saved) return
@@ -526,6 +560,8 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     netHourlyRate,
     sessionDate,
     reports,
+    openReports,
+    paidReports,
     display,
     totalCost,
     netTotalCost,
@@ -538,6 +574,8 @@ export const useStopwatchStore = defineStore('stopwatch', () => {
     lap,
     saveDailyReport,
     deleteReport,
+    archiveReport,
+    restoreReport,
     setPricingEnabled,
     setHourlyRate,
     setNetPricingEnabled,

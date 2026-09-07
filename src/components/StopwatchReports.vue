@@ -12,13 +12,18 @@ import {
 } from '../stores/stopwatch'
 
 const store = useStopwatchStore()
-const { reports } = storeToRefs(store)
+const { openReports, paidReports } = storeToRefs(store)
 const open = ref(false)
+const view = ref('open') // 'open' | 'paid'
 
-const groupedArchive = computed(() => {
+const visibleReports = computed(() =>
+  view.value === 'paid' ? paidReports.value : openReports.value,
+)
+
+function groupReports(list) {
   const monthMap = new Map()
 
-  for (const report of reports.value) {
+  for (const report of list) {
     const monthKey = monthKeyFromDateKey(report.date)
     if (!monthMap.has(monthKey)) {
       monthMap.set(monthKey, { monthKey, days: new Map() })
@@ -49,7 +54,9 @@ const groupedArchive = computed(() => {
         days,
       }
     })
-})
+}
+
+const groupedArchive = computed(() => groupReports(visibleReports.value))
 
 function toggle() {
   open.value = !open.value
@@ -65,13 +72,50 @@ function toggle() {
       @click="toggle"
     >
       <span>Report archive</span>
-      <span class="count">{{ reports.length }}</span>
+      <span class="count">{{ openReports.length }}</span>
+      <span
+        v-if="paidReports.length"
+        class="count paid-count"
+        :title="`${paidReports.length} paid`"
+      >
+        {{ paidReports.length }}
+      </span>
       <span class="chevron" :class="{ open }" aria-hidden="true">›</span>
     </button>
 
     <div v-if="open" class="reports-panel">
-      <p v-if="reports.length === 0" class="empty">
-        Saved daily reports will appear here.
+      <div class="tabs" role="tablist" aria-label="Report lists">
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          :class="{ active: view === 'open' }"
+          :aria-selected="view === 'open'"
+          @click="view = 'open'"
+        >
+          Open
+          <span class="tab-count">{{ openReports.length }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          :class="{ active: view === 'paid' }"
+          :aria-selected="view === 'paid'"
+          @click="view = 'paid'"
+        >
+          Paid
+          <span class="tab-count">{{ paidReports.length }}</span>
+        </button>
+      </div>
+
+      <p v-if="visibleReports.length === 0" class="empty">
+        <template v-if="view === 'open'">
+          Open reports appear here. Move paid ones to Paid so they stop summing with unpaid work.
+        </template>
+        <template v-else>
+          Paid archive is empty. Press the archive button on an open report after the client pays.
+        </template>
       </p>
 
       <section
@@ -81,7 +125,7 @@ function toggle() {
       >
         <div v-if="month.totals.hasFull" class="month-banner">
           <div class="month-banner-head">
-            <span class="banner-badge">Month</span>
+            <span class="banner-badge">{{ view === 'paid' ? 'Paid month' : 'Month' }}</span>
             <span class="banner-date">{{ month.label }}</span>
           </div>
           <div class="banner-stats">
@@ -104,52 +148,77 @@ function toggle() {
 
         <div v-for="day in month.days" :key="day.dateKey" class="day-group">
           <div class="day-stack">
-          <article
-            v-for="report in day.reports"
-            :key="report.id"
-            class="report-card"
-          >
-            <header class="report-head">
-              <div>
-                <h3>{{ formatReportDate(report.date) }}</h3>
-                <p class="report-meta">
-                  {{ formatStopwatch(report.elapsedMs).text }}
-                  <span v-if="report.manual">· manual</span>
-                  <span v-else>· auto</span>
-                </p>
-              </div>
-              <button
-                type="button"
-                class="delete-btn"
-                aria-label="Delete report"
-                @click="store.deleteReport(report.id)"
-              >
-                ×
-              </button>
-            </header>
+            <article
+              v-for="report in day.reports"
+              :key="report.id"
+              class="report-card"
+              :class="{ paid: report.archived }"
+            >
+              <header class="report-head">
+                <div>
+                  <h3>{{ formatReportDate(report.date) }}</h3>
+                  <p class="report-meta">
+                    {{ formatStopwatch(report.elapsedMs).text }}
+                    <span v-if="report.manual">· manual</span>
+                    <span v-else>· auto</span>
+                    <span v-if="report.archived">· paid</span>
+                  </p>
+                </div>
+                <div class="report-actions">
+                  <button
+                    v-if="!report.archived"
+                    type="button"
+                    class="action-btn archive-btn"
+                    aria-label="Move to paid archive"
+                    title="Move to paid"
+                    @click="store.archiveReport(report.id)"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    v-else
+                    type="button"
+                    class="action-btn restore-btn"
+                    aria-label="Restore to open reports"
+                    title="Restore to open"
+                    @click="store.restoreReport(report.id)"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    class="action-btn delete-btn"
+                    aria-label="Delete report"
+                    title="Delete"
+                    @click="store.deleteReport(report.id)"
+                  >
+                    ×
+                  </button>
+                </div>
+              </header>
 
-            <div v-if="report.pricingEnabled" class="report-rows">
-              <div class="report-row">
-                <span>Earned (full)</span>
-                <span>{{ formatMoney(report.earnedFull) }}</span>
-              </div>
-              <template v-if="report.netPricingEnabled">
+              <div v-if="report.pricingEnabled" class="report-rows">
                 <div class="report-row">
-                  <span>Earned (net)</span>
-                  <span class="net">{{ formatMoney(report.earnedNet) }}</span>
+                  <span>Earned (full)</span>
+                  <span>{{ formatMoney(report.earnedFull) }}</span>
                 </div>
-                <div class="report-row subtle">
-                  <span>Rate diff</span>
-                  <span>{{ formatMoney(report.rateDiff) }}/hr</span>
-                </div>
-                <div class="report-row subtle">
-                  <span>Accumulated diff</span>
-                  <span>{{ formatMoney(report.accumulatedDiff) }}</span>
-                </div>
-              </template>
-            </div>
-            <p v-else class="report-note">Price calculator was off for this session.</p>
-          </article>
+                <template v-if="report.netPricingEnabled">
+                  <div class="report-row">
+                    <span>Earned (net)</span>
+                    <span class="net">{{ formatMoney(report.earnedNet) }}</span>
+                  </div>
+                  <div class="report-row subtle">
+                    <span>Rate diff</span>
+                    <span>{{ formatMoney(report.rateDiff) }}/hr</span>
+                  </div>
+                  <div class="report-row subtle">
+                    <span>Accumulated diff</span>
+                    <span>{{ formatMoney(report.accumulatedDiff) }}</span>
+                  </div>
+                </template>
+              </div>
+              <p v-else class="report-note">Price calculator was off for this session.</p>
+            </article>
           </div>
 
           <div v-if="day.totals.hasFull" class="day-total">
@@ -223,6 +292,11 @@ function toggle() {
   font-weight: 700;
 }
 
+.paid-count {
+  background: rgba(139, 227, 196, 0.18);
+  color: var(--ok);
+}
+
 .chevron {
   margin-left: auto;
   color: var(--muted);
@@ -239,6 +313,56 @@ function toggle() {
 .reports-panel {
   display: grid;
   gap: 0.85rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.3rem;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: rgba(18, 21, 28, 0.7);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.tab {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: none;
+  border-radius: 9px;
+  padding: 0.55rem 0.9rem;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.active {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .month-group {
@@ -413,6 +537,11 @@ function toggle() {
   background: rgba(10, 7, 16, 0.45);
 }
 
+.report-card.paid {
+  border-color: rgba(139, 227, 196, 0.22);
+  background: rgba(10, 18, 16, 0.4);
+}
+
 .report-head {
   display: flex;
   align-items: flex-start;
@@ -434,7 +563,13 @@ function toggle() {
   color: var(--muted);
 }
 
-.delete-btn {
+.report-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+
+.action-btn {
   appearance: none;
   flex: 0 0 auto;
   width: 1.75rem;
@@ -443,10 +578,22 @@ function toggle() {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   line-height: 1;
   cursor: pointer;
   transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.archive-btn:hover {
+  color: var(--ok);
+  border-color: rgba(139, 227, 196, 0.45);
+  background: rgba(139, 227, 196, 0.12);
+}
+
+.restore-btn:hover {
+  color: #d4ceff;
+  border-color: rgba(139, 124, 247, 0.45);
+  background: rgba(139, 124, 247, 0.16);
 }
 
 .delete-btn:hover {
