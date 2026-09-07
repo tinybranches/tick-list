@@ -10,11 +10,15 @@ import {
   sumReportAmounts,
   useStopwatchStore,
 } from '../stores/stopwatch'
+import DeleteReportDialog from './DeleteReportDialog.vue'
+import ArchiveReportDialog from './ArchiveReportDialog.vue'
 
 const store = useStopwatchStore()
 const { openReports, paidReports } = storeToRefs(store)
 const open = ref(false)
 const view = ref('open') // 'open' | 'paid'
+const pendingDelete = ref(null)
+const pendingArchive = ref(null)
 
 const visibleReports = computed(() =>
   view.value === 'paid' ? paidReports.value : openReports.value,
@@ -60,6 +64,34 @@ const groupedArchive = computed(() => groupReports(visibleReports.value))
 
 function toggle() {
   open.value = !open.value
+}
+
+function askDelete(report) {
+  pendingDelete.value = report
+}
+
+function cancelDelete() {
+  pendingDelete.value = null
+}
+
+function confirmDelete() {
+  if (!pendingDelete.value) return
+  store.deleteReport(pendingDelete.value.id)
+  pendingDelete.value = null
+}
+
+function askArchive(report) {
+  pendingArchive.value = report
+}
+
+function cancelArchive() {
+  pendingArchive.value = null
+}
+
+function confirmArchive() {
+  if (!pendingArchive.value) return
+  store.archiveReport(pendingArchive.value.id)
+  pendingArchive.value = null
 }
 </script>
 
@@ -171,7 +203,7 @@ function toggle() {
                     class="action-btn archive-btn"
                     aria-label="Move to paid archive"
                     title="Move to paid"
-                    @click="store.archiveReport(report.id)"
+                    @click="askArchive(report)"
                   >
                     ↓
                   </button>
@@ -190,7 +222,7 @@ function toggle() {
                     class="action-btn delete-btn"
                     aria-label="Delete report"
                     title="Delete"
-                    @click="store.deleteReport(report.id)"
+                    @click="askDelete(report)"
                   >
                     ×
                   </button>
@@ -245,6 +277,19 @@ function toggle() {
         </div>
       </section>
     </div>
+
+    <DeleteReportDialog
+      :open="Boolean(pendingDelete)"
+      :date-label="pendingDelete ? formatReportDate(pendingDelete.date) : ''"
+      @cancel="cancelDelete"
+      @delete="confirmDelete"
+    />
+    <ArchiveReportDialog
+      :open="Boolean(pendingArchive)"
+      :date-label="pendingArchive ? formatReportDate(pendingArchive.date) : ''"
+      @cancel="cancelArchive"
+      @confirm="confirmArchive"
+    />
   </section>
 </template>
 
