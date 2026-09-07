@@ -61,64 +61,32 @@ function onNetRateInput(event) {
 </script>
 
 <template>
-  <section class="stopwatch">
-    <div class="pricing-bar" :class="{ on: pricingEnabled }">
-      <div class="pricing-top">
-        <div class="pricing-meta">
-          <span class="pricing-title">Price calculator</span>
-          <span class="pricing-sub">{{ pricingEnabled ? 'Billing per hour' : 'Off' }}</span>
-        </div>
+  <section class="stopwatch-page" :class="{ priced: pricingEnabled }">
+    <div class="stopwatch">
+      <div class="pricing-bar" :class="{ on: pricingEnabled }">
+        <div class="pricing-top">
+          <div class="pricing-meta">
+            <span class="pricing-title">Price calculator</span>
+            <span class="pricing-sub">{{ pricingEnabled ? 'Billing per hour' : 'Off' }}</span>
+          </div>
 
-        <button
-          type="button"
-          class="switch"
-          role="switch"
-          :aria-checked="pricingEnabled"
-          aria-label="Toggle price calculator"
-          @click="store.setPricingEnabled(!pricingEnabled)"
-        >
-          <span class="switch-track">
-            <span class="switch-thumb" />
-          </span>
-        </button>
-      </div>
-
-      <div v-if="pricingEnabled" class="pricing-fields">
-        <label class="rate-field">
-          <span class="rate-label">Full rate</span>
-          <span class="rate-control">
-            <span class="rate-prefix">$</span>
-            <input
-              class="rate-input"
-              type="text"
-              inputmode="numeric"
-              pattern="[0-9]*"
-              maxlength="3"
-              autocomplete="off"
-              :value="hourlyRate"
-              aria-label="Full hourly rate"
-              @input="onRateInput"
-            />
-            <span class="rate-suffix">/hr</span>
-          </span>
-        </label>
-
-        <div class="net-row">
           <button
             type="button"
-            class="net-toggle"
+            class="switch"
             role="switch"
-            :aria-checked="netPricingEnabled"
-            aria-label="Toggle net rate"
-            @click="store.setNetPricingEnabled(!netPricingEnabled)"
+            :aria-checked="pricingEnabled"
+            aria-label="Toggle price calculator"
+            @click="store.setPricingEnabled(!pricingEnabled)"
           >
-            <span class="net-toggle-track">
-              <span class="net-toggle-thumb" />
+            <span class="switch-track">
+              <span class="switch-thumb" />
             </span>
-            <span>Net rate</span>
           </button>
+        </div>
 
-          <label v-if="netPricingEnabled" class="rate-field rate-field-net">
+        <div v-if="pricingEnabled" class="pricing-fields">
+          <label class="rate-field">
+            <span class="rate-label">Full rate</span>
             <span class="rate-control">
               <span class="rate-prefix">$</span>
               <input
@@ -128,132 +96,186 @@ function onNetRateInput(event) {
                 pattern="[0-9]*"
                 maxlength="3"
                 autocomplete="off"
-                :value="netHourlyRate"
-                aria-label="Net hourly rate"
-                @input="onNetRateInput"
+                :value="hourlyRate"
+                aria-label="Full hourly rate"
+                @input="onRateInput"
               />
               <span class="rate-suffix">/hr</span>
             </span>
           </label>
+
+          <div class="net-row">
+            <button
+              type="button"
+              class="net-toggle"
+              role="switch"
+              :aria-checked="netPricingEnabled"
+              aria-label="Toggle net rate"
+              @click="store.setNetPricingEnabled(!netPricingEnabled)"
+            >
+              <span class="net-toggle-track">
+                <span class="net-toggle-thumb" />
+              </span>
+              <span>Net rate</span>
+            </button>
+
+            <label v-if="netPricingEnabled" class="rate-field rate-field-net">
+              <span class="rate-control">
+                <span class="rate-prefix">$</span>
+                <input
+                  class="rate-input"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  maxlength="3"
+                  autocomplete="off"
+                  :value="netHourlyRate"
+                  aria-label="Net hourly rate"
+                  @input="onNetRateInput"
+                />
+                <span class="rate-suffix">/hr</span>
+              </span>
+            </label>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="face" aria-live="polite">
-      <span class="main">{{ display.main }}</span>
-      <span class="centis">.{{ display.centis }}</span>
-    </div>
-
-    <div v-if="pricingEnabled" class="cost-panel" aria-live="polite">
-      <div class="cost-row">
-        <span class="cost-label">Earned (full)</span>
-        <span class="cost-value">{{ formatMoney(totalCost) }}</span>
+      <div class="face" aria-live="polite">
+        <span class="main">{{ display.main }}</span>
+        <span class="centis">.{{ display.centis }}</span>
       </div>
 
-      <template v-if="netPricingEnabled">
+      <div v-if="pricingEnabled" class="cost-panel" aria-live="polite">
         <div class="cost-row">
-          <span class="cost-label">Earned (net)</span>
-          <span class="cost-value net">{{ formatMoney(netTotalCost) }}</span>
+          <span class="cost-label">Earned (full)</span>
+          <span class="cost-value">{{ formatMoney(totalCost) }}</span>
         </div>
-        <div class="cost-row subtle">
-          <span class="cost-label">Rate diff</span>
-          <span class="cost-diff">{{ formatMoney(hourlyRateDiff) }}/hr</span>
-        </div>
-        <div class="cost-row subtle">
-          <span class="cost-label">Accumulated diff</span>
-          <span class="cost-diff">{{ formatMoney(accumulatedDiff) }}</span>
-        </div>
-      </template>
 
-      <button
-        type="button"
-        class="btn report"
-        :disabled="!canSaveDailyReport"
-        @click="store.saveDailyReport()"
-      >
-        Daily report
-      </button>
-      <p class="report-hint">
-        Saves this session to the archive and resets the stopwatch. If you leave
-        it until 23:59 without resetting, it archives automatically with that
-        day’s date.
-      </p>
-    </div>
+        <template v-if="netPricingEnabled">
+          <div class="cost-row">
+            <span class="cost-label">Earned (net)</span>
+            <span class="cost-value net">{{ formatMoney(netTotalCost) }}</span>
+          </div>
+          <div class="cost-row subtle">
+            <span class="cost-label">Rate diff</span>
+            <span class="cost-diff">{{ formatMoney(hourlyRateDiff) }}/hr</span>
+          </div>
+          <div class="cost-row subtle">
+            <span class="cost-label">Accumulated diff</span>
+            <span class="cost-diff">{{ formatMoney(accumulatedDiff) }}</span>
+          </div>
+        </template>
 
-    <div class="controls">
-      <button
-        type="button"
-        class="btn lap"
-        :disabled="!canLap"
-        @click="store.lap"
-      >
-        Lap
-      </button>
-
-      <button
-        v-if="running"
-        type="button"
-        class="btn stop"
-        @click="store.stop"
-      >
-        Stop
-      </button>
-      <template v-else>
         <button
           type="button"
-          class="btn reset"
-          :disabled="!canReset"
-          @click="store.reset"
+          class="btn report"
+          :disabled="!canSaveDailyReport"
+          @click="store.saveDailyReport()"
         >
-          Reset
+          Daily report
         </button>
-        <button type="button" class="btn start" @click="store.start">Start</button>
-      </template>
+        <p class="report-hint">
+          Saves this session to the archive and resets the stopwatch. If you leave
+          it until 23:59 without resetting, it archives automatically with that
+          day’s date.
+        </p>
+      </div>
+
+      <div class="controls">
+        <button
+          type="button"
+          class="btn lap"
+          :disabled="!canLap"
+          @click="store.lap"
+        >
+          Lap
+        </button>
+
+        <button
+          v-if="running"
+          type="button"
+          class="btn stop"
+          @click="store.stop"
+        >
+          Stop
+        </button>
+        <template v-else>
+          <button
+            type="button"
+            class="btn reset"
+            :disabled="!canReset"
+            @click="store.reset"
+          >
+            Reset
+          </button>
+          <button type="button" class="btn start" @click="store.start">Start</button>
+        </template>
+      </div>
+
+      <div v-if="laps.length" class="laps" :class="{ priced: pricingEnabled }">
+        <div class="laps-head">
+          <span>LAP</span>
+          <span>TIME</span>
+          <span>TOTAL</span>
+          <span v-if="pricingEnabled">LAP $</span>
+          <span v-if="pricingEnabled">TOTAL $</span>
+        </div>
+        <div v-for="row in laps" :key="row.id" class="laps-row">
+          <span>{{ row.index }}</span>
+          <span>{{ formatParts(row.lapMs).text }}</span>
+          <span>{{ formatParts(row.totalMs).text }}</span>
+          <span v-if="pricingEnabled">{{ formatMoney(row.lapCost) }}</span>
+          <span v-if="pricingEnabled">{{ formatMoney(row.totalCost) }}</span>
+        </div>
+      </div>
     </div>
 
-    <div v-if="laps.length" class="laps" :class="{ priced: pricingEnabled }">
-      <div class="laps-head">
-        <span>LAP</span>
-        <span>TIME</span>
-        <span>TOTAL</span>
-        <span v-if="pricingEnabled">LAP $</span>
-        <span v-if="pricingEnabled">TOTAL $</span>
-      </div>
-      <div v-for="row in laps" :key="row.id" class="laps-row">
-        <span>{{ row.index }}</span>
-        <span>{{ formatParts(row.lapMs).text }}</span>
-        <span>{{ formatParts(row.totalMs).text }}</span>
-        <span v-if="pricingEnabled">{{ formatMoney(row.lapCost) }}</span>
-        <span v-if="pricingEnabled">{{ formatMoney(row.totalCost) }}</span>
-      </div>
-    </div>
-
-    <StopwatchReports v-if="pricingEnabled" />
+    <StopwatchReports v-if="pricingEnabled" class="reports-slot" />
   </section>
 </template>
 
 <style scoped>
+.stopwatch-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.stopwatch-page.priced {
+  align-items: stretch;
+}
+
 .stopwatch {
   display: grid;
-  gap: 1.2rem;
-  justify-items: center;
-  padding: 1.35rem 1.25rem 1.6rem;
+  gap: 1rem;
+  width: 100%;
+  max-width: 24rem;
+  margin: 0 auto;
+  padding: 1.1rem 1rem 1.2rem;
   border: 1px solid var(--stroke);
-  border-radius: 16px;
+  border-radius: 14px;
   background: linear-gradient(160deg, var(--panel) 0%, var(--panel-dim) 100%);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.24);
+}
+
+.reports-slot {
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
 }
 
 .pricing-bar {
   display: grid;
-  gap: 0.75rem;
-  width: min(100%, 420px);
-  padding: 0.75rem 0.85rem;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--stroke);
-  border-radius: 14px;
+  border-radius: 12px;
   background:
-    radial-gradient(120% 100% at 0% 0%, rgba(168, 85, 247, 0.1), transparent 55%),
-    rgba(16, 10, 24, 0.55);
+    radial-gradient(120% 100% at 0% 0%, var(--accent-glow), transparent 55%),
+    rgba(12, 16, 24, 0.55);
   transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
 }
 
@@ -266,9 +288,9 @@ function onNetRateInput(event) {
 
 .pricing-fields {
   display: grid;
-  gap: 0.65rem;
-  padding-top: 0.55rem;
-  border-top: 1px solid rgba(220, 190, 255, 0.08);
+  gap: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--stroke);
 }
 
 .pricing-fields .rate-field {
@@ -279,20 +301,20 @@ function onNetRateInput(event) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.55rem;
 }
 
 .net-toggle {
   appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.5rem;
   border: none;
   padding: 0;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -304,8 +326,8 @@ function onNetRateInput(event) {
 .net-toggle-track {
   position: relative;
   display: block;
-  width: 36px;
-  height: 22px;
+  width: 34px;
+  height: 20px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--stroke);
@@ -316,10 +338,10 @@ function onNetRateInput(event) {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: linear-gradient(180deg, #f3ecff, #c9b8e0);
+  background: linear-gradient(180deg, #e8eefc, #9bb0d4);
   transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -335,7 +357,7 @@ function onNetRateInput(event) {
 
 .rate-field {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 .rate-field-net {
@@ -344,7 +366,7 @@ function onNetRateInput(event) {
 }
 
 .rate-label {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -355,10 +377,10 @@ function onNetRateInput(event) {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  height: 36px;
-  padding: 0 0.65rem;
-  border: 1px solid rgba(201, 160, 255, 0.28);
-  border-radius: 10px;
+  height: 34px;
+  padding: 0 0.6rem;
+  border: 1px solid rgba(91, 141, 239, 0.28);
+  border-radius: 9px;
   background: var(--input);
 }
 
@@ -371,7 +393,7 @@ function onNetRateInput(event) {
   box-shadow: 0 0 0 1px rgba(139, 227, 196, 0.08);
   background:
     radial-gradient(120% 100% at 0% 0%, rgba(139, 227, 196, 0.12), transparent 55%),
-    rgba(16, 10, 24, 0.55);
+    rgba(12, 16, 24, 0.55);
 }
 
 .pricing-meta {
@@ -382,14 +404,14 @@ function onNetRateInput(event) {
 }
 
 .pricing-title {
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.01em;
 }
 
 .pricing-sub {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   letter-spacing: 0.04em;
   color: var(--muted);
 }
@@ -401,17 +423,17 @@ function onNetRateInput(event) {
 .rate-prefix,
 .rate-suffix {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--muted);
 }
 
 .rate-input {
-  width: 3.2rem;
+  width: 3rem;
   border: none;
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-soft);
   font-family: var(--font-mono);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   outline: none;
   text-align: center;
@@ -429,8 +451,8 @@ function onNetRateInput(event) {
 .switch-track {
   position: relative;
   display: block;
-  width: 48px;
-  height: 28px;
+  width: 44px;
+  height: 26px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid var(--stroke);
@@ -441,10 +463,10 @@ function onNetRateInput(event) {
   position: absolute;
   top: 3px;
   left: 3px;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: linear-gradient(180deg, #f3ecff, #c9b8e0);
+  background: linear-gradient(180deg, #e8eefc, #9bb0d4);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), background 0.25s;
 }
@@ -456,7 +478,7 @@ function onNetRateInput(event) {
 }
 
 .pricing-bar.on .switch-thumb {
-  transform: translateX(20px);
+  transform: translateX(18px);
   background: linear-gradient(180deg, #d8fff0, #8be3c4);
 }
 
@@ -489,8 +511,8 @@ function onNetRateInput(event) {
   display: flex;
   align-items: baseline;
   justify-content: center;
-  padding: 0.15rem 0 0;
-  color: var(--accent);
+  padding: 0.1rem 0 0;
+  color: var(--accent-soft);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -498,12 +520,12 @@ function onNetRateInput(event) {
 }
 
 .main {
-  font-size: clamp(2.8rem, 11vw, 4.4rem);
+  font-size: 2.75rem;
   font-weight: 500;
 }
 
 .centis {
-  font-size: clamp(1.35rem, 5.5vw, 2rem);
+  font-size: 1.25rem;
   margin-left: 0.05em;
   color: var(--muted);
   transform: translateY(-0.12em);
@@ -511,12 +533,12 @@ function onNetRateInput(event) {
 
 .cost-panel {
   display: grid;
-  gap: 0.45rem;
-  width: min(100%, 420px);
-  padding: 0.85rem 1rem;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
   border: 1px solid var(--stroke);
-  border-radius: 14px;
-  background: rgba(10, 7, 16, 0.45);
+  border-radius: 12px;
+  background: rgba(8, 10, 16, 0.45);
 }
 
 .cost-row {
@@ -528,11 +550,11 @@ function onNetRateInput(event) {
 
 .cost-row.subtle .cost-label,
 .cost-row.subtle .cost-diff {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
 }
 
 .cost-label {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -540,19 +562,19 @@ function onNetRateInput(event) {
 
 .cost-value {
   font-family: var(--font-mono);
-  font-size: clamp(1.25rem, 4.5vw, 1.65rem);
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--ok);
   letter-spacing: 0.02em;
 }
 
 .cost-value.net {
-  color: var(--accent);
+  color: var(--accent-soft);
 }
 
 .cost-diff {
   font-family: var(--font-mono);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #ff9eaa;
   letter-spacing: 0.02em;
@@ -560,15 +582,15 @@ function onNetRateInput(event) {
 
 .btn.report {
   width: 100%;
-  margin-top: 0.35rem;
+  margin-top: 0.25rem;
   appearance: none;
   border: 1px solid rgba(139, 227, 196, 0.35);
-  border-radius: 10px;
-  padding: 0.72rem 1rem;
+  border-radius: 9px;
+  padding: 0.62rem 0.9rem;
   background: rgba(139, 227, 196, 0.12);
   color: var(--ok);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s, opacity 0.2s;
@@ -586,26 +608,26 @@ function onNetRateInput(event) {
 
 .report-hint {
   margin: 0;
-  font-size: 0.72rem;
-  line-height: 1.45;
+  font-size: 0.68rem;
+  line-height: 1.4;
   color: var(--muted);
 }
 
 .controls {
   display: flex;
-  gap: 0.65rem;
-  width: min(100%, 420px);
+  gap: 0.5rem;
+  width: 100%;
 }
 
 .btn {
   flex: 1;
   appearance: none;
   border: 1px solid var(--stroke);
-  border-radius: 10px;
-  padding: 0.8rem 1rem;
+  border-radius: 9px;
+  padding: 0.68rem 0.85rem;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s, transform 0.15s, opacity 0.2s, filter 0.15s;
@@ -621,9 +643,9 @@ function onNetRateInput(event) {
 }
 
 .btn.lap {
-  background: rgba(139, 124, 247, 0.22);
-  border-color: rgba(139, 124, 247, 0.45);
-  color: #d4ceff;
+  background: var(--accent-glow);
+  border-color: rgba(91, 141, 239, 0.4);
+  color: var(--accent-soft);
 }
 
 .btn.stop {
@@ -633,9 +655,9 @@ function onNetRateInput(event) {
 }
 
 .btn.start {
-  background: rgba(168, 85, 247, 0.28);
-  border-color: rgba(201, 160, 255, 0.45);
-  color: #f0e4ff;
+  background: rgba(91, 141, 239, 0.22);
+  border-color: rgba(91, 141, 239, 0.45);
+  color: var(--accent-soft);
 }
 
 .btn.reset {
@@ -645,13 +667,13 @@ function onNetRateInput(event) {
 
 .btn:hover:not(:disabled) {
   filter: brightness(1.08);
-  border-color: rgba(220, 190, 255, 0.28);
+  border-color: var(--stroke-strong);
 }
 
 .laps {
-  width: min(100%, 560px);
+  width: 100%;
   display: grid;
-  gap: 0.45rem;
+  gap: 0.4rem;
   font-family: var(--font-mono);
   color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -661,7 +683,7 @@ function onNetRateInput(event) {
 .laps-row {
   display: grid;
   grid-template-columns: 0.55fr 1.15fr 1.15fr;
-  gap: 0.55rem;
+  gap: 0.45rem;
   align-items: baseline;
 }
 
@@ -671,17 +693,17 @@ function onNetRateInput(event) {
 }
 
 .laps-head {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
-  padding-bottom: 0.35rem;
+  padding-bottom: 0.3rem;
   border-bottom: 1px solid var(--stroke);
 }
 
 .laps-row {
-  font-size: 0.9rem;
-  color: var(--accent);
+  font-size: 0.82rem;
+  color: var(--accent-soft);
 }
 
 .laps-row span:first-child {
@@ -691,5 +713,35 @@ function onNetRateInput(event) {
 .laps.priced .laps-row span:nth-child(4),
 .laps.priced .laps-row span:nth-child(5) {
   color: var(--ok);
+}
+
+@media (min-width: 900px) {
+  .stopwatch-page.priced {
+    display: grid;
+    grid-template-columns: 24rem minmax(0, 1fr);
+    align-items: start;
+    gap: 1.15rem;
+    max-width: 56rem;
+    margin: 0 auto;
+  }
+
+  .stopwatch-page.priced .stopwatch {
+    margin: 0;
+  }
+
+  .stopwatch-page.priced .reports-slot {
+    max-width: none;
+    margin: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .main {
+    font-size: 2.35rem;
+  }
+
+  .centis {
+    font-size: 1.05rem;
+  }
 }
 </style>

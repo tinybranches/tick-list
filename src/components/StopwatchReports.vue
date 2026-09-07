@@ -295,7 +295,7 @@ function confirmArchive() {
 
 <style scoped>
 .reports-wrap {
-  width: min(100%, 560px);
+  width: 100%;
   display: grid;
   gap: 0.65rem;
 }

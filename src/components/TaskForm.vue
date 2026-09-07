@@ -341,6 +341,7 @@ async function submit() {
 .task-form {
   display: grid;
   gap: 1.1rem;
+  width: 100%;
   padding: 1.35rem 1.25rem 1.4rem;
   border: 1px solid var(--stroke);
   border-radius: 16px;

@@ -50,6 +50,7 @@ const { view, visibleTasks, activeTasks, archivedTasks } = storeToRefs(store)
 .list-wrap {
   display: grid;
   gap: 0.85rem;
+  width: 100%;
 }
 
 .tabs {
