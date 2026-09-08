@@ -196,13 +196,18 @@ function togglePriority() {
           </button>
         </header>
 
-        <textarea
-          ref="textareaEl"
-          v-model="draft"
-          class="composer-input"
-          rows="6"
-          placeholder="Paste a client message, or type a note…"
-        />
+        <label class="composer-field">
+          <span class="composer-hint">
+            First line becomes the title · everything below is the description
+          </span>
+          <textarea
+            ref="textareaEl"
+            v-model="draft"
+            class="composer-input"
+            rows="6"
+            placeholder="Paste a client message, or type a note…"
+          />
+        </label>
 
         <div class="priority-row">
           <button
@@ -355,6 +360,18 @@ function togglePriority() {
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
+}
+
+.composer-field {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.composer-hint {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
 }
 
 .composer-input {
