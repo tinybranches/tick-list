@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useBoardStore } from '../stores/board'
 import MediaLightbox from './MediaLightbox.vue'
+import LinkedText from './LinkedText.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -133,7 +134,7 @@ function openGallery(index) {
         >
           <header class="dialog-head">
             <div>
-              <h2 id="card-detail-title">{{ liveCard.title }}</h2>
+              <h2 id="card-detail-title"><LinkedText :text="liveCard.title" /></h2>
               <p class="meta">
                 {{ formatStamp(liveCard.createdAt) }}
                 <span v-if="liveCard.done"> · done</span>
@@ -160,7 +161,7 @@ function openGallery(index) {
             </div>
           </header>
 
-          <p v-if="liveCard.body" class="body">{{ liveCard.body }}</p>
+          <p v-if="liveCard.body" class="body"><LinkedText :text="liveCard.body" /></p>
 
           <div v-if="media.length" class="media-grid">
             <button
@@ -222,7 +223,7 @@ function openGallery(index) {
                     ×
                   </button>
                 </div>
-                <p>{{ comment.text }}</p>
+                <p><LinkedText :text="comment.text" /></p>
               </li>
             </ul>
 

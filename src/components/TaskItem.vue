@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useTasksStore } from '../stores/tasks'
 import { formatDuration, unlockAudio } from '../composables/useAlarm'
 import DeleteTaskDialog from './DeleteTaskDialog.vue'
+import LinkedText from './LinkedText.vue'
 
 const props = defineProps({
   task: { type: Object, required: true },
@@ -98,7 +99,7 @@ function archiveInstead() {
 
     <div class="top">
       <div class="meta">
-        <h3>{{ task.title }}</h3>
+        <h3><LinkedText :text="task.title" /></h3>
         <span class="status">{{ statusLabel }}</span>
       </div>
       <div class="timer" :class="{ pulse: task.alarming }">

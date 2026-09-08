@@ -221,6 +221,13 @@ function normalizeCard(raw, fallbackProjectId = null) {
     ? raw.comments.map(normalizeComment).filter(Boolean)
     : []
 
+  let status = raw.status
+  if (status !== 'open' && status !== 'paused' && status !== 'done') {
+    if (raw.done) status = 'done'
+    else if (raw.paused) status = 'paused'
+    else status = 'open'
+  }
+
   return {
     id: String(raw.id || uid()),
     projectId: raw.projectId ? String(raw.projectId) : fallbackProjectId,
@@ -232,9 +239,22 @@ function normalizeCard(raw, fallbackProjectId = null) {
     images: attachments
       .filter((row) => row.kind === 'image')
       .map((row) => row.dataUrl),
-    done: Boolean(raw.done),
+    status,
+    done: status === 'done',
+    paused: status === 'paused',
     createdAt: Number(raw.createdAt) || Date.now(),
-    doneAt: raw.doneAt == null ? null : Number(raw.doneAt) || null,
+    pausedAt:
+      status === 'paused'
+        ? Number(raw.pausedAt) || Date.now()
+        : raw.pausedAt == null
+          ? null
+          : Number(raw.pausedAt) || null,
+    doneAt:
+      status === 'done'
+        ? Number(raw.doneAt) || Date.now()
+        : raw.doneAt == null
+          ? null
+          : Number(raw.doneAt) || null,
   }
 }
 
@@ -270,7 +290,7 @@ export const useBoardStore = defineStore('board', () => {
 
   const openCards = computed(() =>
     projectCards.value
-      .filter((card) => !card.done)
+      .filter((card) => card.status === 'open')
       .sort((a, b) => b.createdAt - a.createdAt),
   )
 
@@ -282,9 +302,23 @@ export const useBoardStore = defineStore('board', () => {
     openCards.value.filter((card) => card.priority !== 'high'),
   )
 
+  const pausedCards = computed(() =>
+    projectCards.value
+      .filter((card) => card.status === 'paused')
+      .sort((a, b) => (b.pausedAt || 0) - (a.pausedAt || 0)),
+  )
+
+  const priorityPausedCards = computed(() =>
+    pausedCards.value.filter((card) => card.priority === 'high'),
+  )
+
+  const regularPausedCards = computed(() =>
+    pausedCards.value.filter((card) => card.priority !== 'high'),
+  )
+
   const doneCards = computed(() =>
     projectCards.value
-      .filter((card) => card.done)
+      .filter((card) => card.status === 'done')
       .sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)),
   )
 
@@ -295,7 +329,9 @@ export const useBoardStore = defineStore('board', () => {
   const openCount = computed(
     () =>
       cards.value.filter(
-        (card) => !card.done && activeProjectIds.value.has(card.projectId),
+        (card) =>
+          card.status === 'open' &&
+          activeProjectIds.value.has(card.projectId),
       ).length,
   )
 
@@ -312,8 +348,11 @@ export const useBoardStore = defineStore('board', () => {
         attachments: card.attachments,
         comments: card.comments,
         priority: card.priority,
-        done: card.done,
+        status: card.status,
+        done: card.status === 'done',
+        paused: card.status === 'paused',
         createdAt: card.createdAt,
+        pausedAt: card.pausedAt,
         doneAt: card.doneAt,
       })),
     })
@@ -436,8 +475,9 @@ export const useBoardStore = defineStore('board', () => {
       body: finalBody,
       attachments: media,
       priority: priority === 'high' ? 'high' : 'normal',
-      done: false,
+      status: 'open',
       createdAt: Date.now(),
+      pausedAt: null,
       doneAt: null,
     })
 
@@ -448,17 +488,44 @@ export const useBoardStore = defineStore('board', () => {
 
   function markDone(id) {
     const card = cards.value.find((row) => row.id === id)
-    if (!card || card.done) return
+    if (!card || card.status === 'done') return
+    card.status = 'done'
     card.done = true
+    card.paused = false
     card.doneAt = Date.now()
+    card.pausedAt = null
+    persist()
+  }
+
+  function pause(id) {
+    const card = cards.value.find((row) => row.id === id)
+    if (!card || card.status !== 'open') return
+    card.status = 'paused'
+    card.paused = true
+    card.done = false
+    card.pausedAt = Date.now()
+    card.doneAt = null
+    persist()
+  }
+
+  function resume(id) {
+    const card = cards.value.find((row) => row.id === id)
+    if (!card || card.status !== 'paused') return
+    card.status = 'open'
+    card.paused = false
+    card.done = false
+    card.pausedAt = null
     persist()
   }
 
   function restore(id) {
     const card = cards.value.find((row) => row.id === id)
-    if (!card || !card.done) return
+    if (!card || card.status !== 'done') return
+    card.status = 'open'
     card.done = false
+    card.paused = false
     card.doneAt = null
+    card.pausedAt = null
     persist()
   }
 
@@ -558,6 +625,9 @@ export const useBoardStore = defineStore('board', () => {
     openCards,
     priorityOpenCards,
     regularOpenCards,
+    pausedCards,
+    priorityPausedCards,
+    regularPausedCards,
     doneCards,
     openCount,
     setActiveProject,
@@ -568,6 +638,8 @@ export const useBoardStore = defineStore('board', () => {
     removeProject,
     addCard,
     markDone,
+    pause,
+    resume,
     restore,
     remove,
     addComment,

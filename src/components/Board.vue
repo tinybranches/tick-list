@@ -16,6 +16,9 @@ const {
   openCards,
   priorityOpenCards,
   regularOpenCards,
+  pausedCards,
+  priorityPausedCards,
+  regularPausedCards,
   doneCards,
 } = storeToRefs(store)
 
@@ -29,7 +32,7 @@ const projectDraft = ref('')
 const creatingProject = ref(false)
 const projectInput = ref(null)
 const showArchive = ref(false)
-const boardView = ref('open') // 'open' | 'done'
+const boardView = ref('open') // 'open' | 'paused' | 'done'
 
 const hasActiveProjects = computed(() => activeProjects.value.length > 0)
 const hasAnyProjects = computed(
@@ -41,9 +44,11 @@ const dialogTitle = computed(() => {
   if (!pending.value) return ''
   if (pending.value.type === 'delete') return 'Delete card?'
   if (pending.value.type === 'done') return 'Mark as done?'
+  if (pending.value.type === 'pause') return 'Pause card?'
   if (pending.value.type === 'archive-project') return 'Archive project?'
   if (pending.value.type === 'delete-project') return 'Delete project?'
   if (pending.value.type === 'restore-project') return 'Restore project?'
+  if (pending.value.type === 'resume') return 'Resume card?'
   return 'Restore to Open?'
 })
 const dialogMessage = computed(() => {
@@ -53,6 +58,12 @@ const dialogMessage = computed(() => {
   }
   if (pending.value.type === 'done') {
     return 'will move to Done. You can restore it later.'
+  }
+  if (pending.value.type === 'pause') {
+    return 'will move to Paused until you decide to continue.'
+  }
+  if (pending.value.type === 'resume') {
+    return 'will return to Open.'
   }
   if (pending.value.type === 'archive-project') {
     return 'will move to the project archive. You can restore it later.'
@@ -69,6 +80,8 @@ const dialogConfirmLabel = computed(() => {
   if (!pending.value) return 'Confirm'
   if (pending.value.type === 'delete') return 'Delete forever'
   if (pending.value.type === 'done') return 'Mark done'
+  if (pending.value.type === 'pause') return 'Pause'
+  if (pending.value.type === 'resume') return 'Resume'
   if (pending.value.type === 'archive-project') return 'Archive'
   if (pending.value.type === 'delete-project') return 'Delete forever'
   if (pending.value.type === 'restore-project') return 'Restore'
@@ -170,6 +183,14 @@ function askDone(card) {
   pending.value = { type: 'done', card }
 }
 
+function askPause(card) {
+  pending.value = { type: 'pause', card }
+}
+
+function askResume(card) {
+  pending.value = { type: 'resume', card }
+}
+
 function askRestore(card) {
   pending.value = { type: 'restore', card }
 }
@@ -211,6 +232,8 @@ function confirmPending() {
   if (!pending.value) return
   const { type, card, project } = pending.value
   if (type === 'done') store.markDone(card.id)
+  else if (type === 'pause') store.pause(card.id)
+  else if (type === 'resume') store.resume(card.id)
   else if (type === 'restore') store.restore(card.id)
   else if (type === 'delete') {
     if (activeCard.value?.id === card.id) {
@@ -369,7 +392,7 @@ function formatArchiveMeta(project) {
               class="btn ghost archive-btn"
               @click="openArchive"
             >
-              Archive
+              Archive Project
               <span
                 v-if="archivedProjects.length"
                 class="archive-badge"
@@ -381,10 +404,10 @@ function formatArchiveMeta(project) {
               v-if="activeProject"
               type="button"
               class="btn ghost"
-              title="Archive project"
+              title="Close project"
               @click="askArchiveProject(activeProject)"
             >
-              Close
+              Close Project
             </button>
           </div>
         </div>
@@ -428,6 +451,17 @@ function formatArchiveMeta(project) {
                 type="button"
                 role="tab"
                 class="view-tab"
+                :class="{ active: boardView === 'paused' }"
+                :aria-selected="boardView === 'paused'"
+                @click="boardView = 'paused'"
+              >
+                Paused
+                <span class="view-count">{{ pausedCards.length }}</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="view-tab"
                 :class="{ active: boardView === 'done' }"
                 :aria-selected="boardView === 'done'"
                 @click="boardView = 'done'"
@@ -447,7 +481,16 @@ function formatArchiveMeta(project) {
             </button>
           </div>
 
-          <div class="feed" :aria-label="boardView === 'open' ? 'Open cards' : 'Done cards'">
+          <div
+            class="feed"
+            :aria-label="
+              boardView === 'open'
+                ? 'Open cards'
+                : boardView === 'paused'
+                  ? 'Paused cards'
+                  : 'Done cards'
+            "
+          >
             <template v-if="boardView === 'open'">
               <p v-if="openCards.length === 0" class="feed-empty">
                 No open cards yet. Add one or paste notes here.
@@ -461,6 +504,7 @@ function formatArchiveMeta(project) {
                     :key="card.id"
                     :card="card"
                     @open="openCard(card)"
+                    @pause="askPause(card)"
                     @done="askDone(card)"
                     @delete="askDelete(card)"
                   />
@@ -480,6 +524,49 @@ function formatArchiveMeta(project) {
                     :key="card.id"
                     :card="card"
                     @open="openCard(card)"
+                    @pause="askPause(card)"
+                    @done="askDone(card)"
+                    @delete="askDelete(card)"
+                  />
+                </div>
+              </section>
+            </template>
+
+            <template v-else-if="boardView === 'paused'">
+              <p v-if="pausedCards.length === 0" class="feed-empty">
+                No paused cards. Use Pause when a task is halfway and waiting
+                for a decision.
+              </p>
+
+              <section v-if="priorityPausedCards.length" class="feed-group">
+                <h3 class="feed-label">Priority</h3>
+                <div class="feed-list">
+                  <BoardCard
+                    v-for="card in priorityPausedCards"
+                    :key="card.id"
+                    :card="card"
+                    @open="openCard(card)"
+                    @resume="askResume(card)"
+                    @done="askDone(card)"
+                    @delete="askDelete(card)"
+                  />
+                </div>
+              </section>
+
+              <section v-if="regularPausedCards.length" class="feed-group">
+                <h3
+                  v-if="priorityPausedCards.length"
+                  class="feed-label"
+                >
+                  General
+                </h3>
+                <div class="feed-list">
+                  <BoardCard
+                    v-for="card in regularPausedCards"
+                    :key="card.id"
+                    :card="card"
+                    @open="openCard(card)"
+                    @resume="askResume(card)"
                     @done="askDone(card)"
                     @delete="askDelete(card)"
                   />

@@ -1,13 +1,15 @@
 <script setup>
 import { computed } from 'vue'
+import LinkedText from './LinkedText.vue'
 
 const props = defineProps({
   card: { type: Object, required: true },
 })
 
-const emit = defineEmits(['done', 'restore', 'delete', 'open'])
+const emit = defineEmits(['done', 'pause', 'resume', 'restore', 'delete', 'open'])
 
 const isPriority = computed(() => props.card.priority === 'high')
+const status = computed(() => props.card.status || (props.card.done ? 'done' : 'open'))
 
 const commentCount = computed(() =>
   Array.isArray(props.card.comments) ? props.card.comments.length : 0,
@@ -38,7 +40,7 @@ function formatCardDate(ts) {
 </script>
 
 <template>
-  <article class="card" :class="{ done: card.done }">
+  <article class="card" :class="status">
     <div class="card-body-wrap">
       <button
         type="button"
@@ -47,9 +49,12 @@ function formatCardDate(ts) {
         @click="emit('open')"
       >
         <div class="card-top">
-          <span v-if="isPriority" class="priority-mark">Priority</span>
-          <h3>{{ card.title }}</h3>
-          <p v-if="card.body" class="card-body">{{ card.body }}</p>
+          <div class="card-marks">
+            <span v-if="isPriority" class="priority-mark">Priority</span>
+            <span v-if="status === 'paused'" class="paused-mark">Paused</span>
+          </div>
+          <h3><LinkedText :text="card.title" /></h3>
+          <p v-if="card.body" class="card-body"><LinkedText :text="card.body" /></p>
         </div>
 
         <div v-if="media.length" class="media-row" aria-hidden="true">
@@ -97,14 +102,22 @@ function formatCardDate(ts) {
       </button>
 
       <div class="card-actions">
-        <button
-          v-if="!card.done"
-          type="button"
-          class="action done"
-          @click="emit('done')"
-        >
-          Done
-        </button>
+        <template v-if="status === 'open'">
+          <button type="button" class="action pause" @click="emit('pause')">
+            Pause
+          </button>
+          <button type="button" class="action done" @click="emit('done')">
+            Done
+          </button>
+        </template>
+        <template v-else-if="status === 'paused'">
+          <button type="button" class="action resume" @click="emit('resume')">
+            Resume
+          </button>
+          <button type="button" class="action done" @click="emit('done')">
+            Done
+          </button>
+        </template>
         <button
           v-else
           type="button"
@@ -138,6 +151,10 @@ function formatCardDate(ts) {
   opacity: 0.78;
 }
 
+.card.paused {
+  border-color: rgba(240, 196, 113, 0.28);
+}
+
 .card-body-wrap {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -165,6 +182,12 @@ function formatCardDate(ts) {
   gap: 0.4rem;
 }
 
+.card-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .priority-mark {
   display: inline-flex;
   align-items: center;
@@ -174,6 +197,21 @@ function formatCardDate(ts) {
   border-radius: 999px;
   background: rgba(240, 113, 120, 0.12);
   color: #ffb4bc;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.paused-mark {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 1.3rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: rgba(240, 196, 113, 0.12);
+  color: #f0c471;
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -344,12 +382,25 @@ function formatCardDate(ts) {
   background: rgba(62, 207, 142, 0.18);
 }
 
+.action.pause {
+  border-color: rgba(240, 196, 113, 0.3);
+  background: rgba(240, 196, 113, 0.08);
+  color: #f0c471;
+}
+
+.action.pause:hover {
+  border-color: rgba(240, 196, 113, 0.5);
+  background: rgba(240, 196, 113, 0.16);
+}
+
+.action.resume,
 .action.restore {
   border-color: rgba(107, 149, 240, 0.28);
   background: rgba(107, 149, 240, 0.08);
   color: var(--accent-soft);
 }
 
+.action.resume:hover,
 .action.restore:hover {
   border-color: rgba(107, 149, 240, 0.5);
   background: rgba(107, 149, 240, 0.18);
