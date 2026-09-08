@@ -324,6 +324,18 @@ export const useBoardStore = defineStore('board', () => {
       .sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)),
   )
 
+  const projectProgress = computed(() => {
+    const total = projectCards.value.length
+    const done = projectCards.value.filter((card) => card.status === 'done').length
+    const percent = total ? Math.round((done / total) * 100) : 0
+    return {
+      total,
+      done,
+      remaining: Math.max(0, total - done),
+      percent,
+    }
+  })
+
   const activeProjectIds = computed(
     () => new Set(activeProjects.value.map((row) => row.id)),
   )
@@ -691,6 +703,7 @@ export const useBoardStore = defineStore('board', () => {
     priorityPausedCards,
     regularPausedCards,
     doneCards,
+    projectProgress,
     openCount,
     setActiveProject,
     addProject,
