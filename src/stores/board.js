@@ -185,10 +185,14 @@ function normalizeAttachment(raw) {
 
 function normalizeComment(raw) {
   const text = String(raw?.text ?? '').trim()
-  if (!text) return null
+  const attachments = Array.isArray(raw?.attachments)
+    ? raw.attachments.map(normalizeAttachment).filter(Boolean)
+    : []
+  if (!text && !attachments.length) return null
   return {
     id: String(raw.id || uid()),
     text,
+    attachments,
     createdAt: Number(raw.createdAt) || Date.now(),
     updatedAt: raw.updatedAt == null ? null : Number(raw.updatedAt) || null,
   }
@@ -582,7 +586,7 @@ export const useBoardStore = defineStore('board', () => {
     persist()
   }
 
-  function updateCard(id, { title, body } = {}) {
+  function updateCard(id, { title, body, attachments } = {}) {
     const card = cards.value.find((row) => row.id === id)
     if (!card) return false
 
@@ -593,16 +597,26 @@ export const useBoardStore = defineStore('board', () => {
     if (body !== undefined) {
       card.body = String(body ?? '').replace(/\r\n/g, '\n').trim()
     }
+    if (attachments !== undefined) {
+      const next = (Array.isArray(attachments) ? attachments : [])
+        .map(normalizeAttachment)
+        .filter(Boolean)
+      card.attachments = next
+      card.images = next
+        .filter((row) => row.kind === 'image')
+        .map((row) => row.dataUrl)
+    }
     persist()
     return true
   }
 
-  function addComment(cardId, text) {
+  function addComment(cardId, text, attachments = []) {
     const card = cards.value.find((row) => row.id === cardId)
     if (!card) return null
     const comment = normalizeComment({
       id: uid(),
       text,
+      attachments,
       createdAt: Date.now(),
     })
     if (!comment) return null
@@ -612,14 +626,21 @@ export const useBoardStore = defineStore('board', () => {
     return comment
   }
 
-  function updateComment(cardId, commentId, text) {
+  function updateComment(cardId, commentId, text, attachments) {
     const card = cards.value.find((row) => row.id === cardId)
     if (!card || !Array.isArray(card.comments)) return false
     const comment = card.comments.find((row) => row.id === commentId)
     if (!comment) return false
+    const nextAttachments =
+      attachments === undefined
+        ? comment.attachments || []
+        : (Array.isArray(attachments) ? attachments : [])
+            .map(normalizeAttachment)
+            .filter(Boolean)
     const clean = String(text ?? '').trim()
-    if (!clean) return false
+    if (!clean && !nextAttachments.length) return false
     comment.text = clean
+    comment.attachments = nextAttachments
     comment.updatedAt = Date.now()
     persist()
     return true

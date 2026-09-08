@@ -1,6 +1,10 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useBoardStore } from '../stores/board'
+import {
+  attachmentFromFile,
+  attachmentsFromClipboard,
+  useBoardStore,
+} from '../stores/board'
 import MediaLightbox from './MediaLightbox.vue'
 import LinkedText from './LinkedText.vue'
 import RichText from './RichText.vue'
@@ -16,18 +20,26 @@ const emit = defineEmits(['close', 'closed'])
 
 const store = useBoardStore()
 const draft = ref('')
+const draftAttachments = ref([])
 const commentInput = ref(null)
 const titleInput = ref(null)
 const commentEditInput = ref(null)
+const cardFileInput = ref(null)
+const commentFileInput = ref(null)
+const commentEditFileInput = ref(null)
 const galleryOpen = ref(false)
 const galleryIndex = ref(0)
+const galleryItems = ref([])
 const backdropArmed = ref(false)
 const pendingDeleteComment = ref(null)
 const editingCard = ref(false)
 const editTitle = ref('')
 const editBody = ref('')
+const editAttachments = ref([])
 const editingCommentId = ref(null)
 const editCommentText = ref('')
+const editCommentAttachments = ref([])
+const attachError = ref('')
 
 const liveCard = computed(() => {
   if (!props.card) return null
@@ -67,12 +79,21 @@ const comments = computed(() =>
 
 const deleteCommentPreview = computed(() => {
   const text = String(pendingDeleteComment.value?.text || '').trim()
-  if (!text) return ''
-  return text.length > 80 ? `${text.slice(0, 77)}…` : text
+  if (text) return text.length > 80 ? `${text.slice(0, 77)}…` : text
+  const count = pendingDeleteComment.value?.attachments?.length || 0
+  if (count) return `${count} attachment${count === 1 ? '' : 's'}`
+  return ''
 })
 
 const canSaveCard = computed(() => Boolean(editTitle.value.trim()))
-const canSaveComment = computed(() => Boolean(editCommentText.value.trim()))
+const canSaveComment = computed(
+  () =>
+    Boolean(editCommentText.value.trim()) ||
+    editCommentAttachments.value.length > 0,
+)
+const canSubmitComment = computed(
+  () => Boolean(draft.value.trim()) || draftAttachments.value.length > 0,
+)
 
 function formatStamp(ts) {
   return new Date(ts).toLocaleString(undefined, {
@@ -87,8 +108,12 @@ function resetEditors() {
   editingCard.value = false
   editTitle.value = ''
   editBody.value = ''
+  editAttachments.value = []
   editingCommentId.value = null
   editCommentText.value = ''
+  editCommentAttachments.value = []
+  draftAttachments.value = []
+  attachError.value = ''
 }
 
 function close() {
@@ -143,9 +168,12 @@ function startEditCard() {
   if (!liveCard.value) return
   editingCommentId.value = null
   editCommentText.value = ''
+  editCommentAttachments.value = []
   editingCard.value = true
   editTitle.value = liveCard.value.title || ''
   editBody.value = liveCard.value.body || ''
+  editAttachments.value = [...media.value]
+  attachError.value = ''
   nextTick(() => titleInput.value?.focus())
 }
 
@@ -153,6 +181,8 @@ function cancelEditCard() {
   editingCard.value = false
   editTitle.value = ''
   editBody.value = ''
+  editAttachments.value = []
+  attachError.value = ''
 }
 
 function saveCard() {
@@ -160,20 +190,26 @@ function saveCard() {
   store.updateCard(liveCard.value.id, {
     title: editTitle.value,
     body: wrapCodeIfNeeded(editBody.value),
+    attachments: editAttachments.value,
   })
   cancelEditCard()
 }
 
 function startEditComment(comment) {
   editingCard.value = false
+  editAttachments.value = []
   editingCommentId.value = comment.id
   editCommentText.value = comment.text || ''
+  editCommentAttachments.value = [...(comment.attachments || [])]
+  attachError.value = ''
   nextTick(() => commentEditInput.value?.focus())
 }
 
 function cancelEditComment() {
   editingCommentId.value = null
   editCommentText.value = ''
+  editCommentAttachments.value = []
+  attachError.value = ''
 }
 
 function saveComment() {
@@ -182,6 +218,7 @@ function saveComment() {
     liveCard.value.id,
     editingCommentId.value,
     wrapCodeIfNeeded(editCommentText.value),
+    editCommentAttachments.value,
   )
   cancelEditComment()
 }
@@ -199,13 +236,48 @@ function updateCommentText(commentId, next) {
 function submitComment() {
   if (!liveCard.value || editingCard.value || editingCommentId.value) return
   const text = wrapCodeIfNeeded(draft.value.trim())
-  if (!text) return
-  store.addComment(liveCard.value.id, text)
+  if (!text && !draftAttachments.value.length) return
+  store.addComment(liveCard.value.id, text, draftAttachments.value)
   draft.value = ''
+  draftAttachments.value = []
+  attachError.value = ''
   nextTick(() => commentInput.value?.focus())
 }
 
-function onCommentPaste(event) {
+function clipboardHasMedia(items) {
+  return items.some(
+    (item) =>
+      item.type.startsWith('image/') ||
+      item.type.startsWith('video/') ||
+      (item.kind === 'file' && item.type && !item.type.startsWith('text/')),
+  )
+}
+
+async function takePastedMedia(event) {
+  const items = [...(event.clipboardData?.items || [])]
+  if (!clipboardHasMedia(items)) return null
+  event.preventDefault()
+  attachError.value = ''
+  const next = await attachmentsFromClipboard(items)
+  if (!next.length) {
+    attachError.value = 'Could not attach pasted media (file may be too large).'
+    return []
+  }
+  return next
+}
+
+async function onCardEditPaste(event) {
+  const next = await takePastedMedia(event)
+  if (!next) return
+  if (next.length) editAttachments.value.push(...next)
+}
+
+async function onCommentPaste(event) {
+  const next = await takePastedMedia(event)
+  if (next) {
+    if (next.length) draftAttachments.value.push(...next)
+    return
+  }
   const text = event.clipboardData?.getData('text/plain') || ''
   if (!draft.value.trim() && looksLikeCode(text)) {
     event.preventDefault()
@@ -213,9 +285,54 @@ function onCommentPaste(event) {
   }
 }
 
-function openGallery(index) {
+async function onCommentEditPaste(event) {
+  const next = await takePastedMedia(event)
+  if (!next) return
+  if (next.length) editCommentAttachments.value.push(...next)
+}
+
+async function addFilesTo(targetRef, fileList) {
+  const files = [...(fileList || [])]
+  if (!files.length) return
+  attachError.value = ''
+  for (const file of files) {
+    const attachment = await attachmentFromFile(file)
+    if (!attachment) {
+      attachError.value =
+        'Some files were skipped (too large or unsupported). Images/videos work best under a few MB.'
+      continue
+    }
+    targetRef.value.push(attachment)
+  }
+}
+
+function onCardFilePick(event) {
+  addFilesTo(editAttachments, event.target.files)
+  event.target.value = ''
+}
+
+function onCommentFilePick(event) {
+  addFilesTo(draftAttachments, event.target.files)
+  event.target.value = ''
+}
+
+function onCommentEditFilePick(event) {
+  addFilesTo(editCommentAttachments, event.target.files)
+  event.target.value = ''
+}
+
+function removeFrom(targetRef, id) {
+  targetRef.value = targetRef.value.filter((row) => row.id !== id)
+}
+
+function openGallery(items, index = 0) {
+  galleryItems.value = Array.isArray(items) ? items : []
   galleryIndex.value = index
   galleryOpen.value = true
+}
+
+function commentMedia(comment) {
+  return Array.isArray(comment?.attachments) ? comment.attachments : []
 }
 
 function askDeleteComment(comment) {
@@ -299,6 +416,7 @@ function confirmDeleteComment() {
             v-if="editingCard"
             class="edit-card-form"
             @submit.prevent="saveCard"
+            @paste="onCardEditPaste"
           >
             <label class="field">
               <span>Title</span>
@@ -314,6 +432,63 @@ function confirmDeleteComment() {
               <span>Details</span>
               <textarea v-model="editBody" rows="5" placeholder="Optional details…" />
             </label>
+
+            <div class="attach-block">
+              <div class="attach-toolbar">
+                <button
+                  type="button"
+                  class="attach-btn"
+                  @click="cardFileInput?.click()"
+                >
+                  + Attach files
+                </button>
+                <span class="attach-hint">or paste images / video</span>
+                <input
+                  ref="cardFileInput"
+                  type="file"
+                  class="file-input"
+                  multiple
+                  accept="image/*,video/*,.pdf,.txt,.doc,.docx,.zip"
+                  @change="onCardFilePick"
+                />
+              </div>
+              <div v-if="editAttachments.length" class="attach-grid">
+                <div
+                  v-for="(item, index) in editAttachments"
+                  :key="item.id"
+                  class="attach-tile"
+                >
+                  <button
+                    type="button"
+                    class="attach-open"
+                    :aria-label="`Open ${item.name}`"
+                    @click="openGallery(editAttachments, index)"
+                  >
+                    <img
+                      v-if="item.kind === 'image'"
+                      :src="item.dataUrl"
+                      :alt="item.name"
+                    />
+                    <video
+                      v-else-if="item.kind === 'video'"
+                      :src="item.dataUrl"
+                      muted
+                      playsinline
+                    />
+                    <span v-else class="attach-file">{{ item.name }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="attach-remove"
+                    aria-label="Remove attachment"
+                    @click="removeFrom(editAttachments, item.id)"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div class="edit-actions">
               <button type="button" class="btn ghost" @click="cancelEditCard">
                 Cancel
@@ -322,6 +497,7 @@ function confirmDeleteComment() {
                 Save
               </button>
             </div>
+            <p v-if="attachError" class="attach-error">{{ attachError }}</p>
           </form>
 
           <p v-else-if="liveCard.body" class="body">
@@ -332,7 +508,7 @@ function confirmDeleteComment() {
             />
           </p>
 
-          <div v-if="media.length" class="media-grid">
+          <div v-if="!editingCard && media.length" class="media-grid">
             <button
               v-for="(item, index) in media"
               :key="item.id || index"
@@ -340,7 +516,7 @@ function confirmDeleteComment() {
               class="media-tile"
               :class="item.kind || 'file'"
               :aria-label="`Open ${item.kind || 'attachment'}: ${item.name || ''}`"
-              @click="openGallery(index)"
+              @click="openGallery(media, index)"
             >
               <img
                 v-if="item.kind === 'image'"
@@ -411,6 +587,7 @@ function confirmDeleteComment() {
                   v-if="editingCommentId === comment.id"
                   class="comment-edit-form"
                   @submit.prevent="saveComment"
+                  @paste="onCommentEditPaste"
                 >
                   <textarea
                     ref="commentEditInput"
@@ -420,6 +597,61 @@ function confirmDeleteComment() {
                     @keydown.ctrl.enter.prevent="saveComment"
                     @keydown.escape.prevent="cancelEditComment"
                   />
+                  <div class="attach-block compact">
+                    <div class="attach-toolbar">
+                      <button
+                        type="button"
+                        class="attach-btn"
+                        @click="commentEditFileInput?.click()"
+                      >
+                        + Attach
+                      </button>
+                      <span class="attach-hint">or paste media</span>
+                      <input
+                        ref="commentEditFileInput"
+                        type="file"
+                        class="file-input"
+                        multiple
+                        accept="image/*,video/*,.pdf,.txt,.doc,.docx,.zip"
+                        @change="onCommentEditFilePick"
+                      />
+                    </div>
+                    <div v-if="editCommentAttachments.length" class="attach-grid">
+                      <div
+                        v-for="(item, index) in editCommentAttachments"
+                        :key="item.id"
+                        class="attach-tile"
+                      >
+                        <button
+                          type="button"
+                          class="attach-open"
+                          :aria-label="`Open ${item.name}`"
+                          @click="openGallery(editCommentAttachments, index)"
+                        >
+                          <img
+                            v-if="item.kind === 'image'"
+                            :src="item.dataUrl"
+                            :alt="item.name"
+                          />
+                          <video
+                            v-else-if="item.kind === 'video'"
+                            :src="item.dataUrl"
+                            muted
+                            playsinline
+                          />
+                          <span v-else class="attach-file">{{ item.name }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="attach-remove"
+                          aria-label="Remove attachment"
+                          @click="removeFrom(editCommentAttachments, item.id)"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                   <div class="edit-actions">
                     <button type="button" class="btn ghost" @click="cancelEditComment">
                       Cancel
@@ -429,13 +661,48 @@ function confirmDeleteComment() {
                     </button>
                   </div>
                 </form>
-                <p v-else>
-                  <RichText
-                    :text="comment.text"
-                    editable
-                    @update:text="updateCommentText(comment.id, $event)"
-                  />
-                </p>
+                <template v-else>
+                  <p v-if="comment.text">
+                    <RichText
+                      :text="comment.text"
+                      editable
+                      @update:text="updateCommentText(comment.id, $event)"
+                    />
+                  </p>
+                  <div v-if="commentMedia(comment).length" class="comment-media">
+                    <button
+                      v-for="(item, index) in commentMedia(comment)"
+                      :key="item.id || index"
+                      type="button"
+                      class="media-tile"
+                      :class="item.kind || 'file'"
+                      :aria-label="`Open ${item.name || 'attachment'}`"
+                      @click="openGallery(commentMedia(comment), index)"
+                    >
+                      <img
+                        v-if="item.kind === 'image'"
+                        class="media-preview"
+                        :src="item.dataUrl"
+                        :alt="item.name"
+                      />
+                      <video
+                        v-else-if="item.kind === 'video'"
+                        class="media-preview"
+                        :src="item.dataUrl"
+                        muted
+                        playsinline
+                        preload="metadata"
+                      />
+                      <span v-else class="file-tile">{{ item.name }}</span>
+                      <span class="media-shade" aria-hidden="true" />
+                      <span
+                        v-if="item.kind === 'video'"
+                        class="media-play"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </div>
+                </template>
               </li>
             </ul>
 
@@ -453,7 +720,63 @@ function confirmDeleteComment() {
                 @keydown.meta.enter.prevent="submitComment"
                 @keydown.ctrl.enter.prevent="submitComment"
               />
-              <button type="submit" class="btn" :disabled="!draft.trim()">
+              <div class="attach-block compact">
+                <div class="attach-toolbar">
+                  <button
+                    type="button"
+                    class="attach-btn"
+                    @click="commentFileInput?.click()"
+                  >
+                    + Attach
+                  </button>
+                  <span class="attach-hint">or paste media</span>
+                  <input
+                    ref="commentFileInput"
+                    type="file"
+                    class="file-input"
+                    multiple
+                    accept="image/*,video/*,.pdf,.txt,.doc,.docx,.zip"
+                    @change="onCommentFilePick"
+                  />
+                </div>
+                <div v-if="draftAttachments.length" class="attach-grid">
+                  <div
+                    v-for="(item, index) in draftAttachments"
+                    :key="item.id"
+                    class="attach-tile"
+                  >
+                    <button
+                      type="button"
+                      class="attach-open"
+                      :aria-label="`Open ${item.name}`"
+                      @click="openGallery(draftAttachments, index)"
+                    >
+                      <img
+                        v-if="item.kind === 'image'"
+                        :src="item.dataUrl"
+                        :alt="item.name"
+                      />
+                      <video
+                        v-else-if="item.kind === 'video'"
+                        :src="item.dataUrl"
+                        muted
+                        playsinline
+                      />
+                      <span v-else class="attach-file">{{ item.name }}</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="attach-remove"
+                      aria-label="Remove attachment"
+                      @click="removeFrom(draftAttachments, item.id)"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p v-if="attachError" class="attach-error">{{ attachError }}</p>
+              <button type="submit" class="btn" :disabled="!canSubmitComment">
                 Add comment
               </button>
             </form>
@@ -464,7 +787,7 @@ function confirmDeleteComment() {
 
     <MediaLightbox
       :open="galleryOpen"
-      :items="media"
+      :items="galleryItems"
       :index="galleryIndex"
       @close="galleryOpen = false"
       @update:index="galleryIndex = $event"
@@ -715,6 +1038,123 @@ function confirmDeleteComment() {
   font-size: 0.62rem;
   text-align: center;
   word-break: break-word;
+}
+
+.attach-block {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.attach-block.compact {
+  gap: 0.4rem;
+}
+
+.attach-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.attach-btn {
+  appearance: none;
+  border: 1px dashed var(--stroke-strong);
+  border-radius: 8px;
+  padding: 0.4rem 0.65rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--accent-soft);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.attach-hint {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.file-input {
+  display: none;
+}
+
+.attach-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 0.4rem;
+}
+
+.attach-tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--stroke);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.attach-open {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.attach-open img,
+.attach-open video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.attach-file {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0.3rem;
+  color: var(--muted);
+  font-size: 0.58rem;
+  text-align: center;
+  word-break: break-word;
+}
+
+.attach-remove {
+  appearance: none;
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(8, 12, 20, 0.88);
+  color: #fff;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.attach-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+.comment-media {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.comment-media .media-tile {
+  min-height: 0;
 }
 
 .comments {
