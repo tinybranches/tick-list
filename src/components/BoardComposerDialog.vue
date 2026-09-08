@@ -273,7 +273,7 @@ function togglePriority() {
                 type="button"
                 class="tile-remove"
                 aria-label="Remove attachment"
-                @click="removeAttachment(item.id)"
+                @click.stop="removeAttachment(item.id)"
               >
                 ×
               </button>
@@ -514,13 +514,21 @@ function togglePriority() {
   position: absolute;
   top: 0.25rem;
   right: 0.25rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   width: 1.35rem;
   height: 1.35rem;
-  border: none;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.65);
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(8, 12, 20, 0.88);
   color: #fff;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  font-weight: 500;
   line-height: 1;
   cursor: pointer;
 }
