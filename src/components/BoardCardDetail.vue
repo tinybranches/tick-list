@@ -765,7 +765,7 @@ function confirmDeleteComment() {
 .comment-actions {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.15rem;
 }
 
 .comment time {
@@ -781,17 +781,29 @@ function confirmDeleteComment() {
   line-height: 1.45;
 }
 
-.comment-edit {
+.comment-edit,
+.comment-delete {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 1.5rem;
+  margin: 0;
   border: none;
   border-radius: 6px;
-  padding: 0.2rem 0.45rem;
+  padding: 0;
   background: transparent;
   color: var(--muted);
   font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.comment-edit {
+  padding: 0 0.45rem;
   font-size: 0.7rem;
   font-weight: 650;
-  cursor: pointer;
 }
 
 .comment-edit:hover {
@@ -800,14 +812,9 @@ function confirmDeleteComment() {
 }
 
 .comment-delete {
-  appearance: none;
-  width: 1.35rem;
-  height: 1.35rem;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
+  width: 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
 .comment-delete:hover {
