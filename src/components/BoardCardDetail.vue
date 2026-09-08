@@ -321,8 +321,11 @@ function onCommentEditFilePick(event) {
   event.target.value = ''
 }
 
-function removeFrom(targetRef, id) {
-  targetRef.value = targetRef.value.filter((row) => row.id !== id)
+function removeFrom(list, id) {
+  if (!Array.isArray(list)) return
+  const index = list.findIndex((row) => row.id === id)
+  if (index === -1) return
+  list.splice(index, 1)
 }
 
 function openGallery(items, index = 0) {
@@ -481,7 +484,7 @@ function confirmDeleteComment() {
                     type="button"
                     class="attach-remove"
                     aria-label="Remove attachment"
-                    @click="removeFrom(editAttachments, item.id)"
+                    @click.stop="removeFrom(editAttachments, item.id)"
                   >
                     ×
                   </button>
@@ -645,7 +648,7 @@ function confirmDeleteComment() {
                           type="button"
                           class="attach-remove"
                           aria-label="Remove attachment"
-                          @click="removeFrom(editCommentAttachments, item.id)"
+                          @click.stop="removeFrom(editCommentAttachments, item.id)"
                         >
                           ×
                         </button>
@@ -768,7 +771,7 @@ function confirmDeleteComment() {
                       type="button"
                       class="attach-remove"
                       aria-label="Remove attachment"
-                      @click="removeFrom(draftAttachments, item.id)"
+                      @click.stop="removeFrom(draftAttachments, item.id)"
                     >
                       ×
                     </button>
@@ -1129,13 +1132,21 @@ function confirmDeleteComment() {
   position: absolute;
   top: 0.2rem;
   right: 0.2rem;
-  width: 1.2rem;
-  height: 1.2rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: 0;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 6px;
   background: rgba(8, 12, 20, 0.88);
   color: #fff;
-  font-size: 0.9rem;
+  font-size: 1rem;
+  font-weight: 500;
   line-height: 1;
   cursor: pointer;
 }
