@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
+import { looksLikeCode, wrapCodeIfNeeded, guessCodeLanguage } from '../utils/richText'
 
 const STORAGE_KEY = 'tick-list-board'
 const MAX_IMAGE_EDGE = 1280
@@ -189,6 +190,7 @@ function normalizeComment(raw) {
     id: String(raw.id || uid()),
     text,
     createdAt: Number(raw.createdAt) || Date.now(),
+    updatedAt: raw.updatedAt == null ? null : Number(raw.updatedAt) || null,
   }
 }
 
@@ -432,6 +434,30 @@ export const useBoardStore = defineStore('board', () => {
     persist()
   }
 
+  function clearArchivedProjects() {
+    const archivedIds = new Set(
+      projects.value.filter((row) => row.archived).map((row) => row.id),
+    )
+    if (!archivedIds.size) return
+    projects.value = projects.value.filter((row) => !row.archived)
+    cards.value = cards.value.filter((card) => !archivedIds.has(card.projectId))
+    if (archivedIds.has(activeProjectId.value)) {
+      pickActiveProject()
+    }
+    persist()
+  }
+
+  function snippetTitleFromCode(text) {
+    const lang = guessCodeLanguage(text)
+    if (lang === 'php') return 'PHP snippet'
+    if (lang === 'js') return 'JS snippet'
+    if (lang === 'ts') return 'TS snippet'
+    if (lang === 'python') return 'Python snippet'
+    if (lang === 'sql') return 'SQL snippet'
+    if (lang) return `${lang} snippet`
+    return 'Code snippet'
+  }
+
   function addCard({
     title = '',
     body = '',
@@ -456,12 +482,20 @@ export const useBoardStore = defineStore('board', () => {
     let finalTitle
     let finalBody
 
-    if (rawBody) {
+    const titleTrim = rawTitle.trim()
+    const isFenced = /^```[\s\S]*```$/.test(titleTrim)
+    const isCodeBlob = !rawBody && (isFenced || looksLikeCode(rawTitle))
+
+    if (isCodeBlob) {
+      finalTitle = snippetTitleFromCode(rawTitle)
+      finalBody = isFenced ? titleTrim : wrapCodeIfNeeded(rawTitle)
+    } else if (rawBody) {
       finalTitle = titleFromText(rawTitle) || (hasMedia ? 'Media note' : 'Untitled card')
-      finalBody = rawBody
+      finalBody = looksLikeCode(rawBody) ? wrapCodeIfNeeded(rawBody) : rawBody
     } else if (rawTitle.includes('\n')) {
       finalTitle = titleFromText(rawTitle)
       finalBody = bodyFromText(rawTitle)
+      if (looksLikeCode(finalBody)) finalBody = wrapCodeIfNeeded(finalBody)
     } else {
       finalTitle =
         rawTitle.trim() || (hasMedia ? 'Media note' : 'Untitled card')
@@ -536,6 +570,21 @@ export const useBoardStore = defineStore('board', () => {
     persist()
   }
 
+  function updateCard(id, { title, body } = {}) {
+    const card = cards.value.find((row) => row.id === id)
+    if (!card) return false
+
+    if (title !== undefined) {
+      const clean = String(title ?? '').trim()
+      card.title = clean || 'Untitled card'
+    }
+    if (body !== undefined) {
+      card.body = String(body ?? '').replace(/\r\n/g, '\n').trim()
+    }
+    persist()
+    return true
+  }
+
   function addComment(cardId, text) {
     const card = cards.value.find((row) => row.id === cardId)
     if (!card) return null
@@ -549,6 +598,19 @@ export const useBoardStore = defineStore('board', () => {
     card.comments.push(comment)
     persist()
     return comment
+  }
+
+  function updateComment(cardId, commentId, text) {
+    const card = cards.value.find((row) => row.id === cardId)
+    if (!card || !Array.isArray(card.comments)) return false
+    const comment = card.comments.find((row) => row.id === commentId)
+    if (!comment) return false
+    const clean = String(text ?? '').trim()
+    if (!clean) return false
+    comment.text = clean
+    comment.updatedAt = Date.now()
+    persist()
+    return true
   }
 
   function removeComment(cardId, commentId) {
@@ -636,13 +698,16 @@ export const useBoardStore = defineStore('board', () => {
     archiveProject,
     restoreProject,
     removeProject,
+    clearArchivedProjects,
     addCard,
+    updateCard,
     markDone,
     pause,
     resume,
     restore,
     remove,
     addComment,
+    updateComment,
     removeComment,
     setPriority,
   }

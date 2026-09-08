@@ -5,6 +5,7 @@ import {
   attachmentsFromClipboard,
 } from '../stores/board'
 import MediaLightbox from './MediaLightbox.vue'
+import { looksLikeCode, wrapCodeIfNeeded } from '../utils/richText'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -105,6 +106,7 @@ function openGallery(index) {
 }
 
 async function onDialogPaste(event) {
+  const text = event.clipboardData?.getData('text/plain') || ''
   const items = [...(event.clipboardData?.items || [])]
   const hasMedia = items.some(
     (item) =>
@@ -112,23 +114,50 @@ async function onDialogPaste(event) {
       item.type.startsWith('video/') ||
       (item.kind === 'file' && item.type && !item.type.startsWith('text/')),
   )
-  if (!hasMedia) return
 
-  event.preventDefault()
-  event.stopPropagation()
-  attachError.value = ''
-  const next = await attachmentsFromClipboard(items)
-  if (!next.length) {
-    attachError.value = 'Could not attach pasted media (file may be too large).'
+  if (hasMedia) {
+    event.preventDefault()
+    event.stopPropagation()
+    attachError.value = ''
+    const next = await attachmentsFromClipboard(items)
+    if (!next.length) {
+      attachError.value = 'Could not attach pasted media (file may be too large).'
+      return
+    }
+    attachments.value.push(...next)
     return
   }
-  attachments.value.push(...next)
+
+  if (text && looksLikeCode(text)) {
+    event.preventDefault()
+    event.stopPropagation()
+    const wrapped = wrapCodeIfNeeded(text)
+    const el = textareaEl.value
+    if (!el) {
+      draft.value = draft.value
+        ? `${draft.value.replace(/\s+$/, '')}\n\n${wrapped}`
+        : wrapped
+      return
+    }
+    const start = el.selectionStart ?? draft.value.length
+    const end = el.selectionEnd ?? draft.value.length
+    const before = draft.value.slice(0, start)
+    const after = draft.value.slice(end)
+    const spacerBefore = before && !before.endsWith('\n') ? '\n\n' : before.endsWith('\n') && !before.endsWith('\n\n') ? '\n' : ''
+    const spacerAfter = after && !after.startsWith('\n') ? '\n\n' : ''
+    draft.value = `${before}${spacerBefore}${wrapped}${spacerAfter}${after}`
+    nextTick(() => {
+      const pos = (before + spacerBefore + wrapped).length
+      el.setSelectionRange(pos, pos)
+      el.focus()
+    })
+  }
 }
 
 function submit() {
   if (!canSubmit.value) return
   emit('done', {
-    text: draft.value.trim(),
+    text: wrapCodeIfNeeded(draft.value.trim()),
     attachments: [...attachments.value],
     priority: priority.value,
   })
