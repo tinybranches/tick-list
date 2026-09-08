@@ -24,6 +24,7 @@ const draftAttachments = ref([])
 const commentInput = ref(null)
 const titleInput = ref(null)
 const commentEditInput = ref(null)
+const dialogEl = ref(null)
 const cardFileInput = ref(null)
 const commentFileInput = ref(null)
 const commentEditFileInput = ref(null)
@@ -145,7 +146,9 @@ watch(
       draft.value = ''
       pendingDeleteComment.value = null
       resetEditors()
-      nextTick(() => commentInput.value?.focus())
+      nextTick(() => {
+        if (dialogEl.value) dialogEl.value.scrollTop = 0
+      })
     }
   },
 )
@@ -369,6 +372,7 @@ function confirmDeleteComment() {
       >
         <div
           v-if="liveCard"
+          ref="dialogEl"
           class="dialog"
           role="dialog"
           aria-modal="true"
