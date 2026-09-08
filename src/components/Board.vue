@@ -821,7 +821,7 @@ function formatArchiveMeta(project) {
 .project-tab {
   appearance: none;
   border: 1px solid var(--stroke);
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 0.4rem 0.75rem;
   background: transparent;
   color: var(--muted);
