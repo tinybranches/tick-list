@@ -21,6 +21,7 @@ const {
   priorityPausedCards,
   regularPausedCards,
   doneCards,
+  projectProgress,
 } = storeToRefs(store)
 
 const composerOpen = ref(false)
@@ -470,6 +471,33 @@ function formatArchiveMeta(project) {
         </form>
 
         <template v-if="hasActiveProjects && activeProject">
+          <div
+            class="project-progress"
+            role="progressbar"
+            :aria-valuemin="0"
+            :aria-valuemax="100"
+            :aria-valuenow="projectProgress.percent"
+            :aria-label="`${activeProject.name} progress`"
+          >
+            <div class="project-progress-meta">
+              <span class="project-progress-label">Progress</span>
+              <span class="project-progress-stats">
+                <template v-if="projectProgress.total">
+                  {{ projectProgress.done }}/{{ projectProgress.total }} done ·
+                  {{ projectProgress.percent }}%
+                </template>
+                <template v-else>No cards yet</template>
+              </span>
+            </div>
+            <div class="project-progress-track">
+              <div
+                class="project-progress-fill"
+                :class="{ complete: projectProgress.percent === 100 && projectProgress.total > 0 }"
+                :style="{ width: `${projectProgress.percent}%` }"
+              />
+            </div>
+          </div>
+
           <div class="feed-bar">
             <div class="view-switch" role="tablist" aria-label="Card status">
               <button
@@ -963,6 +991,57 @@ function formatArchiveMeta(project) {
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.project-progress {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.project-progress-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.project-progress-label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project-progress-stats {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.project-progress-track {
+  height: 0.42rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--stroke);
+}
+
+.project-progress-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #5a84e8, var(--accent-soft));
+  box-shadow: 0 0 12px rgba(107, 149, 240, 0.35);
+  transition: width 0.35s ease;
+}
+
+.project-progress-fill.complete {
+  background: linear-gradient(90deg, #4f9d7a, #7dcca8);
+  box-shadow: 0 0 12px rgba(125, 204, 168, 0.28);
 }
 
 .view-switch {
