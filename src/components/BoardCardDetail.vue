@@ -3,6 +3,9 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useBoardStore } from '../stores/board'
 import MediaLightbox from './MediaLightbox.vue'
 import LinkedText from './LinkedText.vue'
+import RichText from './RichText.vue'
+import BoardConfirmDialog from './BoardConfirmDialog.vue'
+import { looksLikeCode, wrapCodeIfNeeded } from '../utils/richText'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -14,9 +17,17 @@ const emit = defineEmits(['close', 'closed'])
 const store = useBoardStore()
 const draft = ref('')
 const commentInput = ref(null)
+const titleInput = ref(null)
+const commentEditInput = ref(null)
 const galleryOpen = ref(false)
 const galleryIndex = ref(0)
 const backdropArmed = ref(false)
+const pendingDeleteComment = ref(null)
+const editingCard = ref(false)
+const editTitle = ref('')
+const editBody = ref('')
+const editingCommentId = ref(null)
+const editCommentText = ref('')
 
 const liveCard = computed(() => {
   if (!props.card) return null
@@ -28,6 +39,7 @@ function armBackdrop(event) {
 }
 
 function onBackdropClick(event) {
+  if (pendingDeleteComment.value) return
   if (backdropArmed.value && event.target === event.currentTarget) {
     close()
   }
@@ -53,6 +65,15 @@ const comments = computed(() =>
   Array.isArray(liveCard.value?.comments) ? liveCard.value.comments : [],
 )
 
+const deleteCommentPreview = computed(() => {
+  const text = String(pendingDeleteComment.value?.text || '').trim()
+  if (!text) return ''
+  return text.length > 80 ? `${text.slice(0, 77)}…` : text
+})
+
+const canSaveCard = computed(() => Boolean(editTitle.value.trim()))
+const canSaveComment = computed(() => Boolean(editCommentText.value.trim()))
+
 function formatStamp(ts) {
   return new Date(ts).toLocaleString(undefined, {
     month: 'short',
@@ -62,14 +83,31 @@ function formatStamp(ts) {
   })
 }
 
+function resetEditors() {
+  editingCard.value = false
+  editTitle.value = ''
+  editBody.value = ''
+  editingCommentId.value = null
+  editCommentText.value = ''
+}
+
 function close() {
+  if (pendingDeleteComment.value) return
   emit('close')
 }
 
 function onKeydown(event) {
-  if (!props.open || galleryOpen.value) return
+  if (!props.open || galleryOpen.value || pendingDeleteComment.value) return
   if (event.key === 'Escape') {
     event.preventDefault()
+    if (editingCommentId.value) {
+      cancelEditComment()
+      return
+    }
+    if (editingCard.value) {
+      cancelEditCard()
+      return
+    }
     close()
   }
 }
@@ -80,6 +118,8 @@ watch(
     if (open) {
       document.body.style.overflow = 'hidden'
       draft.value = ''
+      pendingDeleteComment.value = null
+      resetEditors()
       nextTick(() => commentInput.value?.focus())
     }
   },
@@ -99,18 +139,100 @@ onBeforeUnmount(() => {
   document.body.style.overflow = ''
 })
 
-function submitComment() {
+function startEditCard() {
   if (!liveCard.value) return
-  const text = draft.value.trim()
+  editingCommentId.value = null
+  editCommentText.value = ''
+  editingCard.value = true
+  editTitle.value = liveCard.value.title || ''
+  editBody.value = liveCard.value.body || ''
+  nextTick(() => titleInput.value?.focus())
+}
+
+function cancelEditCard() {
+  editingCard.value = false
+  editTitle.value = ''
+  editBody.value = ''
+}
+
+function saveCard() {
+  if (!liveCard.value || !canSaveCard.value) return
+  store.updateCard(liveCard.value.id, {
+    title: editTitle.value,
+    body: wrapCodeIfNeeded(editBody.value),
+  })
+  cancelEditCard()
+}
+
+function startEditComment(comment) {
+  editingCard.value = false
+  editingCommentId.value = comment.id
+  editCommentText.value = comment.text || ''
+  nextTick(() => commentEditInput.value?.focus())
+}
+
+function cancelEditComment() {
+  editingCommentId.value = null
+  editCommentText.value = ''
+}
+
+function saveComment() {
+  if (!liveCard.value || !editingCommentId.value || !canSaveComment.value) return
+  store.updateComment(
+    liveCard.value.id,
+    editingCommentId.value,
+    wrapCodeIfNeeded(editCommentText.value),
+  )
+  cancelEditComment()
+}
+
+function updateCardBody(next) {
+  if (!liveCard.value) return
+  store.updateCard(liveCard.value.id, { body: next })
+}
+
+function updateCommentText(commentId, next) {
+  if (!liveCard.value) return
+  store.updateComment(liveCard.value.id, commentId, next)
+}
+
+function submitComment() {
+  if (!liveCard.value || editingCard.value || editingCommentId.value) return
+  const text = wrapCodeIfNeeded(draft.value.trim())
   if (!text) return
   store.addComment(liveCard.value.id, text)
   draft.value = ''
   nextTick(() => commentInput.value?.focus())
 }
 
+function onCommentPaste(event) {
+  const text = event.clipboardData?.getData('text/plain') || ''
+  if (!draft.value.trim() && looksLikeCode(text)) {
+    event.preventDefault()
+    draft.value = wrapCodeIfNeeded(text)
+  }
+}
+
 function openGallery(index) {
   galleryIndex.value = index
   galleryOpen.value = true
+}
+
+function askDeleteComment(comment) {
+  if (editingCommentId.value === comment.id) cancelEditComment()
+  pendingDeleteComment.value = comment
+}
+
+function cancelDeleteComment() {
+  pendingDeleteComment.value = null
+  if (props.open) document.body.style.overflow = 'hidden'
+}
+
+function confirmDeleteComment() {
+  if (!liveCard.value || !pendingDeleteComment.value) return
+  store.removeComment(liveCard.value.id, pendingDeleteComment.value.id)
+  pendingDeleteComment.value = null
+  if (props.open) document.body.style.overflow = 'hidden'
 }
 </script>
 
@@ -133,14 +255,26 @@ function openGallery(index) {
           aria-labelledby="card-detail-title"
         >
           <header class="dialog-head">
-            <div>
-              <h2 id="card-detail-title"><LinkedText :text="liveCard.title" /></h2>
-              <p class="meta">
-                {{ formatStamp(liveCard.createdAt) }}
-                <span v-if="liveCard.done"> · done</span>
-              </p>
+            <div class="head-copy">
+              <template v-if="!editingCard">
+                <h2 id="card-detail-title"><LinkedText :text="liveCard.title" /></h2>
+                <p class="meta">
+                  {{ formatStamp(liveCard.createdAt) }}
+                  <span v-if="liveCard.done"> · done</span>
+                  <span v-else-if="liveCard.paused"> · paused</span>
+                </p>
+              </template>
+              <p v-else class="meta">Editing card</p>
             </div>
             <div class="head-actions">
+              <button
+                v-if="!editingCard"
+                type="button"
+                class="text-btn"
+                @click="startEditCard"
+              >
+                Edit
+              </button>
               <button
                 type="button"
                 class="priority-badge"
@@ -161,7 +295,42 @@ function openGallery(index) {
             </div>
           </header>
 
-          <p v-if="liveCard.body" class="body"><LinkedText :text="liveCard.body" /></p>
+          <form
+            v-if="editingCard"
+            class="edit-card-form"
+            @submit.prevent="saveCard"
+          >
+            <label class="field">
+              <span>Title</span>
+              <input
+                ref="titleInput"
+                v-model="editTitle"
+                type="text"
+                maxlength="200"
+                required
+              />
+            </label>
+            <label class="field">
+              <span>Details</span>
+              <textarea v-model="editBody" rows="5" placeholder="Optional details…" />
+            </label>
+            <div class="edit-actions">
+              <button type="button" class="btn ghost" @click="cancelEditCard">
+                Cancel
+              </button>
+              <button type="submit" class="btn" :disabled="!canSaveCard">
+                Save
+              </button>
+            </div>
+          </form>
+
+          <p v-else-if="liveCard.body" class="body">
+            <RichText
+              :text="liveCard.body"
+              editable
+              @update:text="updateCardBody"
+            />
+          </p>
 
           <div v-if="media.length" class="media-grid">
             <button
@@ -213,21 +382,69 @@ function openGallery(index) {
             <ul v-else class="comment-list">
               <li v-for="comment in comments" :key="comment.id" class="comment">
                 <div class="comment-top">
-                  <time>{{ formatStamp(comment.createdAt) }}</time>
-                  <button
-                    type="button"
-                    class="comment-delete"
-                    aria-label="Delete comment"
-                    @click="store.removeComment(liveCard.id, comment.id)"
-                  >
-                    ×
-                  </button>
+                  <time>
+                    {{ formatStamp(comment.createdAt) }}
+                    <span v-if="comment.updatedAt"> · edited</span>
+                  </time>
+                  <div class="comment-actions">
+                    <button
+                      v-if="editingCommentId !== comment.id"
+                      type="button"
+                      class="comment-edit"
+                      aria-label="Edit comment"
+                      @click="startEditComment(comment)"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      class="comment-delete"
+                      aria-label="Delete comment"
+                      @click="askDeleteComment(comment)"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
-                <p><LinkedText :text="comment.text" /></p>
+
+                <form
+                  v-if="editingCommentId === comment.id"
+                  class="comment-edit-form"
+                  @submit.prevent="saveComment"
+                >
+                  <textarea
+                    ref="commentEditInput"
+                    v-model="editCommentText"
+                    rows="3"
+                    @keydown.meta.enter.prevent="saveComment"
+                    @keydown.ctrl.enter.prevent="saveComment"
+                    @keydown.escape.prevent="cancelEditComment"
+                  />
+                  <div class="edit-actions">
+                    <button type="button" class="btn ghost" @click="cancelEditComment">
+                      Cancel
+                    </button>
+                    <button type="submit" class="btn" :disabled="!canSaveComment">
+                      Save
+                    </button>
+                  </div>
+                </form>
+                <p v-else>
+                  <RichText
+                    :text="comment.text"
+                    editable
+                    @update:text="updateCommentText(comment.id, $event)"
+                  />
+                </p>
               </li>
             </ul>
 
-            <form class="comment-form" @submit.prevent="submitComment">
+            <form
+              v-if="!editingCard && !editingCommentId"
+              class="comment-form"
+              @submit.prevent="submitComment"
+              @paste="onCommentPaste"
+            >
               <textarea
                 ref="commentInput"
                 v-model="draft"
@@ -251,6 +468,17 @@ function openGallery(index) {
       :index="galleryIndex"
       @close="galleryOpen = false"
       @update:index="galleryIndex = $event"
+    />
+
+    <BoardConfirmDialog
+      :open="Boolean(pendingDeleteComment)"
+      title="Delete comment?"
+      :card-title="deleteCommentPreview"
+      message="will be permanently removed. This cannot be undone."
+      confirm-label="Delete forever"
+      variant="danger"
+      @cancel="cancelDeleteComment"
+      @confirm="confirmDeleteComment"
     />
   </Teleport>
 </template>
@@ -287,11 +515,35 @@ function openGallery(index) {
   gap: 0.75rem;
 }
 
+.head-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .head-actions {
   display: flex;
   align-items: center;
   gap: 0.45rem;
   flex: 0 0 auto;
+}
+
+.text-btn {
+  appearance: none;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  min-height: 1.85rem;
+  padding: 0 0.7rem;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.text-btn:hover {
+  color: var(--text);
+  border-color: var(--stroke-strong);
 }
 
 .priority-badge {
@@ -510,6 +762,12 @@ function openGallery(index) {
   margin-bottom: 0.3rem;
 }
 
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .comment time {
   color: var(--muted);
   font-size: 0.7rem;
@@ -521,6 +779,24 @@ function openGallery(index) {
   word-break: break-word;
   font-size: 0.88rem;
   line-height: 1.45;
+}
+
+.comment-edit {
+  appearance: none;
+  border: none;
+  border-radius: 6px;
+  padding: 0.2rem 0.45rem;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.comment-edit:hover {
+  color: var(--accent-soft);
+  background: var(--accent-glow);
 }
 
 .comment-delete {
@@ -539,15 +815,31 @@ function openGallery(index) {
   background: var(--danger-soft);
 }
 
+.edit-card-form,
+.comment-edit-form,
 .comment-form {
   display: grid;
   gap: 0.5rem;
 }
 
+.field {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.field span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.edit-card-form input,
+.edit-card-form textarea,
+.comment-edit-form textarea,
 .comment-form textarea {
   width: 100%;
-  resize: vertical;
-  min-height: 4.5rem;
   border: 1px solid var(--stroke);
   border-radius: 10px;
   padding: 0.7rem 0.8rem;
@@ -558,8 +850,24 @@ function openGallery(index) {
   outline: none;
 }
 
+.edit-card-form textarea,
+.comment-edit-form textarea,
+.comment-form textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.edit-card-form input:focus,
+.edit-card-form textarea:focus,
+.comment-edit-form textarea:focus,
 .comment-form textarea:focus {
   border-color: rgba(91, 141, 239, 0.45);
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
 }
 
 .btn {
@@ -574,6 +882,12 @@ function openGallery(index) {
   font-size: 0.86rem;
   font-weight: 650;
   cursor: pointer;
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: var(--stroke);
+  color: var(--muted);
 }
 
 .btn:disabled {

@@ -2,6 +2,7 @@
 import { computed, nextTick, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useBoardStore, attachmentsFromClipboard } from '../stores/board'
+import { wrapCodeIfNeeded } from '../utils/richText'
 import BoardCard from './BoardCard.vue'
 import BoardConfirmDialog from './BoardConfirmDialog.vue'
 import BoardComposerDialog from './BoardComposerDialog.vue'
@@ -47,6 +48,7 @@ const dialogTitle = computed(() => {
   if (pending.value.type === 'pause') return 'Pause card?'
   if (pending.value.type === 'archive-project') return 'Archive project?'
   if (pending.value.type === 'delete-project') return 'Delete project?'
+  if (pending.value.type === 'clear-archive') return 'Clear archive?'
   if (pending.value.type === 'restore-project') return 'Restore project?'
   if (pending.value.type === 'resume') return 'Resume card?'
   return 'Restore to Open?'
@@ -71,6 +73,9 @@ const dialogMessage = computed(() => {
   if (pending.value.type === 'delete-project') {
     return 'and all its cards will be permanently removed. This cannot be undone.'
   }
+  if (pending.value.type === 'clear-archive') {
+    return 'and all of their cards will be permanently deleted. This cannot be undone.'
+  }
   if (pending.value.type === 'restore-project') {
     return 'will return to active projects.'
   }
@@ -84,17 +89,24 @@ const dialogConfirmLabel = computed(() => {
   if (pending.value.type === 'resume') return 'Resume'
   if (pending.value.type === 'archive-project') return 'Archive'
   if (pending.value.type === 'delete-project') return 'Delete forever'
+  if (pending.value.type === 'clear-archive') return 'Clear archive'
   if (pending.value.type === 'restore-project') return 'Restore'
   return 'Restore'
 })
 const dialogVariant = computed(() =>
-  pending.value?.type === 'delete' || pending.value?.type === 'delete-project'
+  pending.value?.type === 'delete' ||
+  pending.value?.type === 'delete-project' ||
+  pending.value?.type === 'clear-archive'
     ? 'danger'
     : 'confirm',
 )
 
 const dialogSubject = computed(() => {
   if (!pending.value) return ''
+  if (pending.value.type === 'clear-archive') {
+    const count = archivedProjects.value.length
+    return `${count} archived ${count === 1 ? 'project' : 'projects'}`
+  }
   if (
     pending.value.type === 'delete-project' ||
     pending.value.type === 'archive-project' ||
@@ -176,7 +188,7 @@ async function onBoardPaste(event) {
 
   event.preventDefault()
   const attachments = hasMedia ? await attachmentsFromClipboard(items) : []
-  openComposer({ text: text.trim(), attachments })
+  openComposer({ text: wrapCodeIfNeeded(text.trim()), attachments })
 }
 
 function askDone(card) {
@@ -209,6 +221,11 @@ function askRestoreProject(project) {
 
 function askDeleteProject(project) {
   pending.value = { type: 'delete-project', project }
+}
+
+function askClearArchive() {
+  if (!archivedProjects.value.length) return
+  pending.value = { type: 'clear-archive' }
 }
 
 function openCard(card) {
@@ -256,6 +273,15 @@ function confirmPending() {
       activeCard.value = null
     }
     store.removeProject(project.id)
+  } else if (type === 'clear-archive') {
+    if (
+      activeCard.value &&
+      archivedProjects.value.some((row) => row.id === activeCard.value.projectId)
+    ) {
+      detailOpen.value = false
+      activeCard.value = null
+    }
+    store.clearArchivedProjects()
   }
   pending.value = null
 }
@@ -314,15 +340,25 @@ function formatArchiveMeta(project) {
             <p class="archive-kicker">Closed projects</p>
             <h2>Archive</h2>
           </div>
-          <button
-            type="button"
-            class="btn ghost back-btn"
-            aria-label="Back to board"
-            @click="closeArchive"
-          >
-            <span class="back-arrow" aria-hidden="true">←</span>
-            Back
-          </button>
+          <div class="archive-bar-actions">
+            <button
+              v-if="archivedProjects.length"
+              type="button"
+              class="btn danger-ghost"
+              @click="askClearArchive"
+            >
+              Clear archive
+            </button>
+            <button
+              type="button"
+              class="btn ghost back-btn"
+              aria-label="Back to board"
+              @click="closeArchive"
+            >
+              <span class="back-arrow" aria-hidden="true">←</span>
+              Back
+            </button>
+          </div>
         </div>
 
         <div class="archive-panel">
@@ -812,6 +848,14 @@ function formatArchiveMeta(project) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.archive-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
 }
 
 .archive-bar-copy {

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTasksStore } from '../stores/tasks'
 import { formatDuration, unlockAudio } from '../composables/useAlarm'
@@ -13,6 +13,9 @@ const props = defineProps({
 const store = useTasksStore()
 const { runningTaskId } = storeToRefs(store)
 const confirmOpen = ref(false)
+const editing = ref(false)
+const editTitle = ref('')
+const titleInput = ref(null)
 
 const MIN_SUBTRACT_MS = 5 * 60_000
 const MAX_REMAINING_MS = 22 * 60 * 60 * 1000
@@ -55,6 +58,8 @@ const statusLabel = computed(() => {
   return 'idle'
 })
 
+const canSaveTitle = computed(() => Boolean(editTitle.value.trim()))
+
 function onToggleRun() {
   unlockAudio()
   store.toggleRun(props.task.id)
@@ -63,6 +68,24 @@ function onToggleRun() {
 function onAdd(ms) {
   unlockAudio()
   store.addTime(props.task.id, ms)
+}
+
+function startEdit() {
+  editing.value = true
+  editTitle.value = props.task.title || ''
+  nextTick(() => titleInput.value?.focus())
+}
+
+function cancelEdit() {
+  editing.value = false
+  editTitle.value = ''
+}
+
+function saveEdit() {
+  if (!canSaveTitle.value) return
+  if (store.renameTask(props.task.id, editTitle.value)) {
+    cancelEdit()
+  }
 }
 
 function openDeleteConfirm() {
@@ -99,8 +122,35 @@ function archiveInstead() {
 
     <div class="top">
       <div class="meta">
-        <h3><LinkedText :text="task.title" /></h3>
-        <span class="status">{{ statusLabel }}</span>
+        <form
+          v-if="editing"
+          class="title-edit"
+          @submit.prevent="saveEdit"
+        >
+          <input
+            ref="titleInput"
+            v-model="editTitle"
+            type="text"
+            maxlength="120"
+            @keydown.escape.prevent="cancelEdit"
+          />
+          <button type="submit" class="btn" :disabled="!canSaveTitle">Save</button>
+          <button type="button" class="btn ghost" @click="cancelEdit">Cancel</button>
+        </form>
+        <template v-else>
+          <div class="title-row">
+            <h3><LinkedText :text="task.title" /></h3>
+            <button
+              v-if="!task.archived"
+              type="button"
+              class="edit-title"
+              @click="startEdit"
+            >
+              Edit
+            </button>
+          </div>
+          <span class="status">{{ statusLabel }}</span>
+        </template>
       </div>
       <div class="timer" :class="{ pulse: task.alarming }">
         {{ formatDuration(task.remainingMs) }}
@@ -256,6 +306,63 @@ function archiveInstead() {
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.02em;
+  word-break: break-word;
+}
+
+.title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.title-row h3 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0.35rem;
+}
+
+.edit-title {
+  appearance: none;
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.edit-title:hover {
+  color: var(--accent-soft);
+  border-color: rgba(107, 149, 240, 0.35);
+}
+
+.title-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  width: 100%;
+  margin-bottom: 0.35rem;
+}
+
+.title-edit input {
+  flex: 1 1 160px;
+  min-width: 0;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  background: var(--input);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.title-edit input:focus {
+  border-color: rgba(91, 141, 239, 0.45);
 }
 
 .status {

@@ -210,6 +210,16 @@ export const useTasksStore = defineStore('tasks', () => {
     return task
   }
 
+  function renameTask(id, title) {
+    const task = tasks.value.find((t) => t.id === id)
+    if (!task) return false
+    const clean = String(title ?? '').trim()
+    if (!clean) return false
+    task.title = clean
+    persist()
+    return true
+  }
+
   function removeTask(id) {
     const task = tasks.value.find((t) => t.id === id)
     if (task?.alarming) task.alarming = false
@@ -387,6 +397,7 @@ export const useTasksStore = defineStore('tasks', () => {
     runningTaskId,
     alarmingTasks,
     addTask,
+    renameTask,
     removeTask,
     archiveTask,
     restoreTask,
