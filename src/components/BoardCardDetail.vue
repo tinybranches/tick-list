@@ -530,8 +530,8 @@ function confirmDeleteComment() {
 .text-btn {
   appearance: none;
   border: 1px solid var(--stroke);
-  border-radius: 999px;
-  min-height: 1.85rem;
+  border-radius: 8px;
+  min-height: 2rem;
   padding: 0 0.7rem;
   background: transparent;
   color: var(--muted);
@@ -550,10 +550,10 @@ function confirmDeleteComment() {
   appearance: none;
   display: inline-flex;
   align-items: center;
-  min-height: 1.85rem;
+  min-height: 2rem;
   padding: 0 0.7rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
+  border-radius: 8px;
   background: rgba(18, 22, 30, 0.88);
   color: var(--muted);
   font: inherit;
