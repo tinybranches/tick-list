@@ -29,7 +29,8 @@ const board = useBoardStore()
 const stopwatch = useStopwatchStore()
 const { activeCount } = storeToRefs(store)
 const { openCount } = storeToRefs(board)
-const { running: stopwatchRunning } = storeToRefs(stopwatch)
+const { running: stopwatchRunning, display: stopwatchDisplay } =
+  storeToRefs(stopwatch)
 
 const heading = computed(() => {
   if (mode.value === 'stopwatch') return 'Stopwatch'
@@ -46,6 +47,8 @@ const lead = computed(() => {
   }
   return 'Timers with alarms for focused work.'
 })
+
+const miniStopwatchLabel = computed(() => stopwatchDisplay.value?.main || '00:00')
 
 watch(mode, (value) => {
   try {
@@ -96,7 +99,13 @@ const year = new Date().getFullYear()
         >
           <span class="nav-dot" aria-hidden="true" />
           <span class="nav-label">Stopwatch</span>
-          <span v-if="stopwatchRunning" class="nav-badge live">live</span>
+          <span
+            v-if="stopwatchRunning"
+            class="nav-badge live nav-timer"
+            :title="`Running ${miniStopwatchLabel}`"
+          >
+            {{ miniStopwatchLabel }}
+          </span>
         </button>
       </nav>
 
@@ -227,6 +236,13 @@ const year = new Date().getFullYear()
 .nav-item.live:not(.active) .nav-badge {
   background: var(--ok-soft);
   color: var(--ok);
+}
+
+.nav-timer {
+  min-width: 4.6rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .sidebar-foot {
