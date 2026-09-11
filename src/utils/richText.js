@@ -156,3 +156,42 @@ export function replaceCodeSegment(source, segment, nextCode) {
   if (segment.implicit) return block
   return `${text.slice(0, segment.start)}${block}${text.slice(segment.end)}`
 }
+
+export function cardBodyPreview(text, { maxLines = 3, maxChars = 160 } = {}) {
+  const segments = parseRichSegments(text)
+  const chunks = []
+  let hasCode = false
+  let truncated = false
+
+  for (const segment of segments) {
+    if (segment.type === 'code') {
+      hasCode = true
+      const codeLines = String(segment.value || '')
+        .split('\n')
+        .filter((line) => line.trim().length > 0)
+      if (codeLines.length > 2) truncated = true
+      if (codeLines.length) chunks.push(codeLines.slice(0, 2).join('\n'))
+      continue
+    }
+    const value = String(segment.value || '').trim()
+    if (value) chunks.push(value)
+  }
+
+  const plain = chunks.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+  if (!plain) {
+    return { text: '', hasCode, truncated }
+  }
+
+  const lines = plain.split('\n')
+  let preview = lines.slice(0, maxLines).join('\n')
+  truncated = truncated || lines.length > maxLines || plain.length > maxChars
+
+  if (preview.length > maxChars) {
+    preview = `${preview.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`
+    truncated = true
+  } else if (truncated && !preview.endsWith('…')) {
+    preview = `${preview.trimEnd()}…`
+  }
+
+  return { text: preview, hasCode, truncated }
+}
