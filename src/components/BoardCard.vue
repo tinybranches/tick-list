@@ -1,8 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import LinkedText from './LinkedText.vue'
-import RichText from './RichText.vue'
-import { parseRichSegments } from '../utils/richText'
+import { cardBodyPreview } from '../utils/richText'
 
 const props = defineProps({
   card: { type: Object, required: true },
@@ -12,9 +11,7 @@ const emit = defineEmits(['done', 'pause', 'resume', 'restore', 'delete', 'open'
 
 const isPriority = computed(() => props.card.priority === 'high')
 const status = computed(() => props.card.status || (props.card.done ? 'done' : 'open'))
-const hasCode = computed(() =>
-  parseRichSegments(props.card.body || '').some((part) => part.type === 'code'),
-)
+const bodyPreview = computed(() => cardBodyPreview(props.card.body || ''))
 
 const commentCount = computed(() =>
   Array.isArray(props.card.comments) ? props.card.comments.length : 0,
@@ -59,9 +56,12 @@ function formatCardDate(ts) {
             <span v-if="status === 'paused'" class="paused-mark">Paused</span>
           </div>
           <h3><LinkedText :text="card.title" /></h3>
-          <p v-if="card.body" class="card-body" :class="{ codey: hasCode }">
-            <RichText :text="card.body" />
-          </p>
+          <div v-if="bodyPreview.text || bodyPreview.hasCode" class="card-preview">
+            <span v-if="bodyPreview.hasCode" class="code-mark">Code</span>
+            <p v-if="bodyPreview.text" class="card-body" :class="{ codeish: bodyPreview.hasCode }">
+              <LinkedText :text="bodyPreview.text" />
+            </p>
+          </div>
         </div>
 
         <div v-if="media.length" class="media-row" aria-hidden="true">
@@ -235,6 +235,26 @@ function formatCardDate(ts) {
   word-break: break-word;
 }
 
+.card-preview {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.code-mark {
+  justify-self: start;
+  padding: 0.14rem 0.4rem;
+  border: 1px solid rgba(107, 149, 240, 0.28);
+  border-radius: 6px;
+  background: rgba(107, 149, 240, 0.12);
+  color: var(--accent-soft);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
 .card-body {
   margin: 0;
   white-space: pre-wrap;
@@ -248,16 +268,11 @@ function formatCardDate(ts) {
   overflow: hidden;
 }
 
-.card-body.codey {
-  display: block;
-  -webkit-line-clamp: unset;
-  overflow: visible;
-  white-space: normal;
-}
-
-.card-body.codey :deep(.code-pre) {
-  max-height: 8.5rem;
-  overflow: auto;
+.card-body.codeish {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: #b7c4dc;
 }
 
 .media-row {
