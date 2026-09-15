@@ -39,6 +39,11 @@ export function formatMonthLabel(monthKey) {
 export function sumReportAmounts(reportList) {
   return reportList.reduce(
     (acc, report) => {
+      const ms = Number(report.elapsedMs) || 0
+      if (ms > 0) {
+        acc.hasTime = true
+        acc.elapsedMs += ms
+      }
       if (!report.pricingEnabled) return acc
       acc.hasFull = true
       acc.earnedFull += Number(report.earnedFull) || 0
@@ -50,6 +55,8 @@ export function sumReportAmounts(reportList) {
       return acc
     },
     {
+      elapsedMs: 0,
+      hasTime: false,
       earnedFull: 0,
       earnedNet: 0,
       accumulatedDiff: 0,

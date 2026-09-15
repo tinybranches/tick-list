@@ -155,25 +155,31 @@ function confirmArchive() {
         :key="month.monthKey"
         class="month-group"
       >
-        <div v-if="month.totals.hasFull" class="month-banner">
+        <div v-if="month.totals.hasTime || month.totals.hasFull" class="month-banner">
           <div class="month-banner-head">
             <span class="banner-badge">{{ view === 'paid' ? 'Paid month' : 'Month' }}</span>
             <span class="banner-date">{{ month.label }}</span>
           </div>
           <div class="banner-stats">
-            <div class="stat-chip">
-              <span class="chip-label">Full</span>
-              <span class="chip-value">{{ formatMoney(month.totals.earnedFull) }}</span>
+            <div v-if="month.totals.hasTime" class="stat-chip">
+              <span class="chip-label">Time</span>
+              <span class="chip-value">{{ formatStopwatch(month.totals.elapsedMs).main }}</span>
             </div>
-            <template v-if="month.totals.hasNet">
+            <template v-if="month.totals.hasFull">
               <div class="stat-chip">
-                <span class="chip-label">Net</span>
-                <span class="chip-value net">{{ formatMoney(month.totals.earnedNet) }}</span>
+                <span class="chip-label">Full</span>
+                <span class="chip-value">{{ formatMoney(month.totals.earnedFull) }}</span>
               </div>
-              <div class="stat-chip diff">
-                <span class="chip-label">Diff</span>
-                <span class="chip-value">{{ formatMoney(month.totals.accumulatedDiff) }}</span>
-              </div>
+              <template v-if="month.totals.hasNet">
+                <div class="stat-chip">
+                  <span class="chip-label">Net</span>
+                  <span class="chip-value net">{{ formatMoney(month.totals.earnedNet) }}</span>
+                </div>
+                <div class="stat-chip diff">
+                  <span class="chip-label">Diff</span>
+                  <span class="chip-value">{{ formatMoney(month.totals.accumulatedDiff) }}</span>
+                </div>
+              </template>
             </template>
           </div>
         </div>
@@ -253,24 +259,35 @@ function confirmArchive() {
             </article>
           </div>
 
-          <div v-if="day.totals.hasFull" class="day-total">
+          <div v-if="day.totals.hasTime || day.totals.hasFull" class="day-total">
             <span class="day-total-label">Day total</span>
             <div class="day-total-stats">
-              <span class="day-stat">
-                <span class="day-stat-key">Full</span>
-                {{ formatMoney(day.totals.earnedFull) }}
+              <span v-if="day.totals.hasTime" class="day-stat">
+                <span class="day-stat-key">Time</span>
+                {{ formatStopwatch(day.totals.elapsedMs).main }}
               </span>
-              <template v-if="day.totals.hasNet">
-                <span class="day-stat-sep" aria-hidden="true">·</span>
+              <template v-if="day.totals.hasFull">
+                <span
+                  v-if="day.totals.hasTime"
+                  class="day-stat-sep"
+                  aria-hidden="true"
+                >·</span>
                 <span class="day-stat">
-                  <span class="day-stat-key">Net</span>
-                  {{ formatMoney(day.totals.earnedNet) }}
+                  <span class="day-stat-key">Full</span>
+                  {{ formatMoney(day.totals.earnedFull) }}
                 </span>
-                <span class="day-stat-sep" aria-hidden="true">·</span>
-                <span class="day-stat diff">
-                  <span class="day-stat-key">Diff</span>
-                  {{ formatMoney(day.totals.accumulatedDiff) }}
-                </span>
+                <template v-if="day.totals.hasNet">
+                  <span class="day-stat-sep" aria-hidden="true">·</span>
+                  <span class="day-stat">
+                    <span class="day-stat-key">Net</span>
+                    {{ formatMoney(day.totals.earnedNet) }}
+                  </span>
+                  <span class="day-stat-sep" aria-hidden="true">·</span>
+                  <span class="day-stat diff">
+                    <span class="day-stat-key">Diff</span>
+                    {{ formatMoney(day.totals.accumulatedDiff) }}
+                  </span>
+                </template>
               </template>
             </div>
           </div>
