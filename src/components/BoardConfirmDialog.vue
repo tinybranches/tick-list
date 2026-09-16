@@ -57,10 +57,10 @@ onBeforeUnmount(() => {
         aria-describedby="board-confirm-desc"
       >
         <h2 id="board-confirm-title">{{ title }}</h2>
-        <p id="board-confirm-desc">
-          <strong v-if="cardTitle">{{ cardTitle }}</strong>
-          {{ message }}
-        </p>
+        <div id="board-confirm-desc" class="desc">
+          <p v-if="cardTitle" class="subject">{{ cardTitle }}</p>
+          <p class="message">{{ message }}</p>
+        </div>
 
         <div class="actions">
           <button type="button" class="btn ghost" @click="emit('cancel')">
@@ -119,21 +119,35 @@ onBeforeUnmount(() => {
   letter-spacing: -0.02em;
 }
 
-.dialog p {
+.desc {
+  display: grid;
+  gap: 0.55rem;
   margin: 0 0 1.25rem;
+}
+
+.subject {
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.message {
+  margin: 0;
   color: var(--muted);
   line-height: 1.55;
   font-size: 0.95rem;
-}
-
-.dialog strong {
-  display: inline;
-  color: var(--text);
-  font-weight: 600;
-}
-
-.dialog strong::after {
-  content: ' ';
 }
 
 .actions {
