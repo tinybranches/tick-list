@@ -804,7 +804,7 @@ function confirmDeleteComment() {
       :open="Boolean(pendingDeleteComment)"
       title="Delete comment?"
       :card-title="deleteCommentPreview"
-      message="will be permanently removed. This cannot be undone."
+      message="This comment will be permanently removed. This cannot be undone."
       confirm-label="Delete forever"
       variant="danger"
       @cancel="cancelDeleteComment"

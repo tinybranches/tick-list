@@ -57,30 +57,30 @@ const dialogTitle = computed(() => {
 const dialogMessage = computed(() => {
   if (!pending.value) return ''
   if (pending.value.type === 'delete') {
-    return 'will be permanently removed. This cannot be undone.'
+    return 'This card will be permanently removed. This cannot be undone.'
   }
   if (pending.value.type === 'done') {
-    return 'will move to Done. You can restore it later.'
+    return 'This card will move to Done. You can restore it later.'
   }
   if (pending.value.type === 'pause') {
-    return 'will move to Paused until you decide to continue.'
+    return 'This card will move to Paused until you decide to continue.'
   }
   if (pending.value.type === 'resume') {
-    return 'will return to Open.'
+    return 'This card will return to Open.'
   }
   if (pending.value.type === 'archive-project') {
-    return 'will move to the project archive. You can restore it later.'
+    return 'This project will move to the archive. You can restore it later.'
   }
   if (pending.value.type === 'delete-project') {
-    return 'and all its cards will be permanently removed. This cannot be undone.'
+    return 'This project and all its cards will be permanently removed. This cannot be undone.'
   }
   if (pending.value.type === 'clear-archive') {
-    return 'and all of their cards will be permanently deleted. This cannot be undone.'
+    return 'These projects and all of their cards will be permanently deleted. This cannot be undone.'
   }
   if (pending.value.type === 'restore-project') {
-    return 'will return to active projects.'
+    return 'This project will return to active projects.'
   }
-  return 'will move back to Open.'
+  return 'This card will move back to Open.'
 })
 const dialogConfirmLabel = computed(() => {
   if (!pending.value) return 'Confirm'
