@@ -1,5 +1,7 @@
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+
+const PREVIEW_LINES = 4
 
 const props = defineProps({
   code: { type: String, default: '' },
@@ -12,13 +14,32 @@ const emit = defineEmits(['save'])
 const editing = ref(false)
 const draft = ref('')
 const copied = ref(false)
+const expanded = ref(false)
 const editor = ref(null)
 let copyTimer = null
+
+const lineCount = computed(() => {
+  const source = String(props.code ?? '')
+  if (!source) return 0
+  return source.replace(/\n$/, '').split('\n').length
+})
+
+const needsCollapse = computed(() => lineCount.value > PREVIEW_LINES)
+
+const previewCode = computed(() => {
+  if (!needsCollapse.value || expanded.value) return props.code
+  return String(props.code ?? '')
+    .replace(/\n$/, '')
+    .split('\n')
+    .slice(0, PREVIEW_LINES)
+    .join('\n')
+})
 
 watch(
   () => props.code,
   (value) => {
     if (!editing.value) draft.value = value
+    expanded.value = false
   },
   { immediate: true },
 )
@@ -49,6 +70,7 @@ function startEdit() {
   if (!props.editable) return
   draft.value = props.code || ''
   editing.value = true
+  expanded.value = true
   nextTick(() => editor.value?.focus())
 }
 
@@ -60,6 +82,10 @@ function cancelEdit() {
 function saveEdit() {
   emit('save', draft.value)
   editing.value = false
+}
+
+function toggleExpand() {
+  expanded.value = !expanded.value
 }
 </script>
 
@@ -99,7 +125,20 @@ function saveEdit() {
       </div>
     </form>
 
-    <pre v-else class="code-pre"><code>{{ code }}</code></pre>
+    <div v-else class="code-view">
+      <pre
+        class="code-pre"
+        :class="{ collapsed: needsCollapse && !expanded }"
+      ><code>{{ previewCode }}</code></pre>
+      <button
+        v-if="needsCollapse"
+        type="button"
+        class="code-more"
+        @click="toggleExpand"
+      >
+        {{ expanded ? 'Show less' : `Show more · ${lineCount} lines` }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -139,7 +178,7 @@ function saveEdit() {
 .code-btn {
   appearance: none;
   border: 1px solid var(--stroke);
-  border-radius: 999px;
+  border-radius: 8px;
   padding: 0.22rem 0.55rem;
   background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
@@ -164,6 +203,10 @@ function saveEdit() {
   background: transparent;
 }
 
+.code-view {
+  position: relative;
+}
+
 .code-pre {
   margin: 0;
   padding: 0.8rem 0.85rem;
@@ -175,8 +218,44 @@ function saveEdit() {
   white-space: pre;
 }
 
+.code-pre.collapsed {
+  padding-bottom: 0.35rem;
+}
+
+.code-pre.collapsed::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2.1rem;
+  height: 2.4rem;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, #0b1018);
+}
+
 .code-pre code {
   font: inherit;
+}
+
+.code-more {
+  appearance: none;
+  display: block;
+  width: 100%;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0.5rem 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--accent-soft);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.code-more:hover {
+  background: rgba(107, 149, 240, 0.1);
+  color: #c5d5ff;
 }
 
 .code-edit {
