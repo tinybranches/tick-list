@@ -165,7 +165,7 @@ const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
 
     <div class="wordmark-wrap">
       <span class="wordmark">{{ title }}</span>
-      <span class="tagline">focus · track · ship</span>
+      <span class="tagline">stay on track</span>
     </div>
   </div>
 </template>
