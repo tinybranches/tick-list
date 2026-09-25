@@ -15,11 +15,7 @@ const {
   activeProjectId,
   activeProject,
   openCards,
-  priorityOpenCards,
-  regularOpenCards,
   pausedCards,
-  priorityPausedCards,
-  regularPausedCards,
   doneCards,
   projectProgress,
 } = storeToRefs(store)
@@ -40,6 +36,64 @@ const hasActiveProjects = computed(() => activeProjects.value.length > 0)
 const hasAnyProjects = computed(
   () => activeProjects.value.length > 0 || archivedProjects.value.length > 0,
 )
+
+function pad2(n) {
+  return String(n).padStart(2, '0')
+}
+
+function dayKeyFromTs(ts) {
+  const d = new Date(Number(ts) || Date.now())
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+
+function formatDayHeading(dayKey) {
+  const [y, m, day] = String(dayKey).split('-').map(Number)
+  if (!y || !m || !day) return dayKey
+  const date = new Date(y, m - 1, day)
+  const today = new Date()
+  const todayKey = dayKeyFromTs(today)
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const yesterdayKey = dayKeyFromTs(yesterday)
+
+  if (dayKey === todayKey) return 'Today'
+  if (dayKey === yesterdayKey) return 'Yesterday'
+
+  const sameYear = date.getFullYear() === today.getFullYear()
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+}
+
+function groupCardsByDay(cards, getTs = (card) => card.createdAt) {
+  const groups = new Map()
+  for (const card of cards) {
+    const key = dayKeyFromTs(getTs(card))
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(card)
+  }
+
+  return [...groups.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([key, list]) => ({
+      key,
+      label: formatDayHeading(key),
+      count: list.length,
+      cards: [...list].sort((a, b) => {
+        const pa = a.priority === 'high' ? 1 : 0
+        const pb = b.priority === 'high' ? 1 : 0
+        if (pb !== pa) return pb - pa
+        return (Number(getTs(b)) || 0) - (Number(getTs(a)) || 0)
+      }),
+    }))
+}
+
+const openDayGroups = computed(() => groupCardsByDay(openCards.value))
+const pausedDayGroups = computed(() => groupCardsByDay(pausedCards.value))
+const doneDayGroups = computed(() => groupCardsByDay(doneCards.value))
 
 const dialogOpen = computed(() => Boolean(pending.value))
 const dialogTitle = computed(() => {
@@ -560,31 +614,18 @@ function formatArchiveMeta(project) {
                 No open cards yet. Add one or paste notes here.
               </p>
 
-              <section v-if="priorityOpenCards.length" class="feed-group">
-                <h3 class="feed-label">Priority</h3>
-                <div class="feed-list">
-                  <BoardCard
-                    v-for="card in priorityOpenCards"
-                    :key="card.id"
-                    :card="card"
-                    @open="openCard(card)"
-                    @pause="askPause(card)"
-                    @done="askDone(card)"
-                    @delete="askDelete(card)"
-                  />
-                </div>
-              </section>
-
-              <section v-if="regularOpenCards.length" class="feed-group">
-                <h3
-                  v-if="priorityOpenCards.length"
-                  class="feed-label"
-                >
-                  General
+              <section
+                v-for="group in openDayGroups"
+                :key="group.key"
+                class="feed-group"
+              >
+                <h3 class="day-label">
+                  <span>{{ group.label }}</span>
+                  <span class="day-count">{{ group.count }}</span>
                 </h3>
                 <div class="feed-list">
                   <BoardCard
-                    v-for="card in regularOpenCards"
+                    v-for="card in group.cards"
                     :key="card.id"
                     :card="card"
                     @open="openCard(card)"
@@ -602,31 +643,18 @@ function formatArchiveMeta(project) {
                 for a decision.
               </p>
 
-              <section v-if="priorityPausedCards.length" class="feed-group">
-                <h3 class="feed-label">Priority</h3>
-                <div class="feed-list">
-                  <BoardCard
-                    v-for="card in priorityPausedCards"
-                    :key="card.id"
-                    :card="card"
-                    @open="openCard(card)"
-                    @resume="askResume(card)"
-                    @done="askDone(card)"
-                    @delete="askDelete(card)"
-                  />
-                </div>
-              </section>
-
-              <section v-if="regularPausedCards.length" class="feed-group">
-                <h3
-                  v-if="priorityPausedCards.length"
-                  class="feed-label"
-                >
-                  General
+              <section
+                v-for="group in pausedDayGroups"
+                :key="group.key"
+                class="feed-group"
+              >
+                <h3 class="day-label">
+                  <span>{{ group.label }}</span>
+                  <span class="day-count">{{ group.count }}</span>
                 </h3>
                 <div class="feed-list">
                   <BoardCard
-                    v-for="card in regularPausedCards"
+                    v-for="card in group.cards"
                     :key="card.id"
                     :card="card"
                     @open="openCard(card)"
@@ -642,16 +670,27 @@ function formatArchiveMeta(project) {
               <p v-if="doneCards.length === 0" class="feed-empty">
                 Completed cards will show up here.
               </p>
-              <div v-else class="feed-list">
-                <BoardCard
-                  v-for="card in doneCards"
-                  :key="card.id"
-                  :card="card"
-                  @open="openCard(card)"
-                  @restore="askRestore(card)"
-                  @delete="askDelete(card)"
-                />
-              </div>
+
+              <section
+                v-for="group in doneDayGroups"
+                :key="group.key"
+                class="feed-group"
+              >
+                <h3 class="day-label">
+                  <span>{{ group.label }}</span>
+                  <span class="day-count">{{ group.count }}</span>
+                </h3>
+                <div class="feed-list">
+                  <BoardCard
+                    v-for="card in group.cards"
+                    :key="card.id"
+                    :card="card"
+                    @open="openCard(card)"
+                    @restore="askRestore(card)"
+                    @delete="askDelete(card)"
+                  />
+                </div>
+              </section>
             </template>
           </div>
         </template>
@@ -1116,6 +1155,35 @@ function formatArchiveMeta(project) {
 .feed-group {
   display: grid;
   gap: 0.55rem;
+}
+
+.day-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.day-count {
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .feed-label {
