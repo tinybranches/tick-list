@@ -143,6 +143,10 @@ function formatCardDate(ts) {
 
 <style scoped>
 .card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border: 1px solid var(--stroke);
   border-radius: 16px;
   background: var(--card);
@@ -163,18 +167,22 @@ function formatCardDate(ts) {
 }
 
 .card-body-wrap {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  align-items: start;
-  padding: 0.95rem 1rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0.65rem;
+  padding: 0.85rem 0.9rem;
 }
 
 .card-hit {
   appearance: none;
   display: grid;
-  gap: 0.7rem;
+  gap: 0.55rem;
+  flex: 1 1 auto;
+  align-content: start;
   min-width: 0;
+  min-height: 0;
   margin: 0;
   padding: 0;
   border: none;
@@ -182,11 +190,13 @@ function formatCardDate(ts) {
   color: inherit;
   text-align: left;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .card-top {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .card-marks {
@@ -227,12 +237,16 @@ function formatCardDate(ts) {
 
 .card h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 650;
   line-height: 1.35;
   letter-spacing: -0.02em;
   color: var(--text);
   word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .card-preview {
@@ -260,8 +274,8 @@ function formatCardDate(ts) {
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--muted);
-  font-size: 0.84rem;
-  line-height: 1.45;
+  font-size: 0.8rem;
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -270,24 +284,24 @@ function formatCardDate(ts) {
 
 .card-body.codeish {
   font-family: var(--font-mono);
-  font-size: 0.76rem;
-  line-height: 1.4;
+  font-size: 0.72rem;
+  line-height: 1.35;
   color: #b7c4dc;
 }
 
 .media-row {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.35rem;
   flex-wrap: wrap;
 }
 
 .media-tile,
 .media-more {
   position: relative;
-  width: 4.75rem;
-  height: 4.75rem;
+  width: 3.4rem;
+  height: 3.4rem;
   flex: 0 0 auto;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--stroke);
   overflow: hidden;
   background: rgba(0, 0, 0, 0.28);
@@ -371,27 +385,30 @@ function formatCardDate(ts) {
 
 .card-meta {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
+  margin-top: auto;
 }
 
 .card-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 0.35rem;
   flex: 0 0 auto;
-  padding-top: 0.05rem;
+  width: 100%;
 }
 
 .action {
   appearance: none;
-  min-width: 5.2rem;
+  flex: 1 1 auto;
+  min-width: 0;
   border: 1px solid var(--stroke);
-  border-radius: 10px;
-  padding: 0.48rem 0.7rem;
+  border-radius: 8px;
+  padding: 0.42rem 0.55rem;
   background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 650;
   cursor: pointer;
   transition:
@@ -446,19 +463,26 @@ function formatCardDate(ts) {
   color: var(--danger);
 }
 
-@media (max-width: 640px) {
-  .card-body-wrap {
-    grid-template-columns: 1fr;
+@media (max-width: 760px) {
+  .card h3 {
+    font-size: 1rem;
+    -webkit-line-clamp: 3;
   }
 
-  .card-actions {
-    flex-direction: row;
-    flex-wrap: wrap;
+  .card-body {
+    font-size: 0.84rem;
+  }
+
+  .media-tile,
+  .media-more {
+    width: 4.25rem;
+    height: 4.25rem;
   }
 
   .action {
-    min-width: 0;
-    flex: 1 1 auto;
+    padding: 0.48rem 0.7rem;
+    font-size: 0.78rem;
+    border-radius: 10px;
   }
 }
 </style>
