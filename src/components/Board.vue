@@ -1197,8 +1197,19 @@ function formatArchiveMeta(project) {
 
 .feed-list {
   display: grid;
-  gap: 0.65rem;
-  max-width: 46rem;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.feed-list :deep(.card) {
+  min-height: 0;
+}
+
+@media (min-width: 761px) {
+  .feed-list :deep(.card) {
+    aspect-ratio: 1 / 1;
+  }
 }
 
 .feed-empty {
@@ -1228,6 +1239,11 @@ function formatArchiveMeta(project) {
 
   .feed {
     overflow: visible;
+  }
+
+  .feed-list {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
   }
 }
 </style>

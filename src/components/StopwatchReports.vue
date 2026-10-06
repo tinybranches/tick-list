@@ -62,6 +62,11 @@ function groupReports(list) {
 
 const groupedArchive = computed(() => groupReports(visibleReports.value))
 
+const viewTotals = computed(() => sumReportAmounts(visibleReports.value))
+const viewTotalLabel = computed(() =>
+  view.value === 'paid' ? 'Paid total' : 'Open total',
+)
+
 function toggle() {
   open.value = !open.value
 }
@@ -149,6 +154,39 @@ function confirmArchive() {
           Paid archive is empty. Press the archive button on an open report after the client pays.
         </template>
       </p>
+
+      <div
+        v-if="visibleReports.length && (viewTotals.hasTime || viewTotals.hasFull)"
+        class="view-total"
+        :class="{ paid: view === 'paid' }"
+      >
+        <div class="view-total-head">
+          <span class="banner-badge">{{ view === 'paid' ? 'Paid' : 'Open' }}</span>
+          <span class="banner-date">{{ viewTotalLabel }}</span>
+        </div>
+        <div class="banner-stats">
+          <div v-if="viewTotals.hasTime" class="stat-chip">
+            <span class="chip-label">Time</span>
+            <span class="chip-value">{{ formatStopwatch(viewTotals.elapsedMs).main }}</span>
+          </div>
+          <template v-if="viewTotals.hasFull">
+            <div class="stat-chip">
+              <span class="chip-label">Full</span>
+              <span class="chip-value">{{ formatMoney(viewTotals.earnedFull) }}</span>
+            </div>
+            <template v-if="viewTotals.hasNet">
+              <div class="stat-chip">
+                <span class="chip-label">Net</span>
+                <span class="chip-value net">{{ formatMoney(viewTotals.earnedNet) }}</span>
+              </div>
+              <div class="stat-chip diff">
+                <span class="chip-label">Diff</span>
+                <span class="chip-value">{{ formatMoney(viewTotals.accumulatedDiff) }}</span>
+              </div>
+            </template>
+          </template>
+        </div>
+      </div>
 
       <section
         v-for="month in groupedArchive"
@@ -467,6 +505,49 @@ function confirmArchive() {
   );
   border: none;
   border-left: 3px solid rgba(168, 85, 247, 0.75);
+}
+
+.view-total {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(62, 207, 142, 0.2) 0%,
+    rgba(62, 207, 142, 0.07) 48%,
+    transparent 100%
+  );
+  border: 1px solid rgba(62, 207, 142, 0.28);
+  border-left: 3px solid rgba(62, 207, 142, 0.85);
+}
+
+.view-total.paid {
+  background: linear-gradient(
+    90deg,
+    rgba(107, 149, 240, 0.2) 0%,
+    rgba(107, 149, 240, 0.07) 48%,
+    transparent 100%
+  );
+  border-color: rgba(107, 149, 240, 0.28);
+  border-left-color: rgba(107, 149, 240, 0.85);
+}
+
+.view-total-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.view-total .banner-badge {
+  background: rgba(62, 207, 142, 0.28);
+  color: #c8f5de;
+}
+
+.view-total.paid .banner-badge {
+  background: rgba(107, 149, 240, 0.28);
+  color: #d5e2ff;
 }
 
 .month-banner-head {
