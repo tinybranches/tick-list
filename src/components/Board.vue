@@ -68,6 +68,12 @@ function formatDayHeading(dayKey) {
   })
 }
 
+function sortCardsByRecency(cards, getTs = (card) => card.createdAt) {
+  return [...cards].sort(
+    (a, b) => (Number(getTs(b)) || 0) - (Number(getTs(a)) || 0),
+  )
+}
+
 function groupCardsByDay(cards, getTs = (card) => card.createdAt) {
   const groups = new Map()
   for (const card of cards) {
@@ -82,18 +88,25 @@ function groupCardsByDay(cards, getTs = (card) => card.createdAt) {
       key,
       label: formatDayHeading(key),
       count: list.length,
-      cards: [...list].sort((a, b) => {
-        const pa = a.priority === 'high' ? 1 : 0
-        const pb = b.priority === 'high' ? 1 : 0
-        if (pb !== pa) return pb - pa
-        return (Number(getTs(b)) || 0) - (Number(getTs(a)) || 0)
-      }),
+      cards: sortCardsByRecency(list, getTs),
     }))
 }
 
-const openDayGroups = computed(() => groupCardsByDay(openCards.value))
-const pausedDayGroups = computed(() => groupCardsByDay(pausedCards.value))
-const doneDayGroups = computed(() => groupCardsByDay(doneCards.value))
+function splitPriorityFeed(cards, getTs = (card) => card.createdAt) {
+  const priority = sortCardsByRecency(
+    cards.filter((card) => card.priority === 'high'),
+    getTs,
+  )
+  const regular = cards.filter((card) => card.priority !== 'high')
+  return {
+    priority,
+    dayGroups: groupCardsByDay(regular, getTs),
+  }
+}
+
+const openFeed = computed(() => splitPriorityFeed(openCards.value))
+const pausedFeed = computed(() => splitPriorityFeed(pausedCards.value))
+const doneFeed = computed(() => splitPriorityFeed(doneCards.value))
 
 const dialogOpen = computed(() => Boolean(pending.value))
 const dialogTitle = computed(() => {
@@ -614,8 +627,26 @@ function formatArchiveMeta(project) {
                 No open cards yet. Add one or paste notes here.
               </p>
 
+              <section v-if="openFeed.priority.length" class="feed-group">
+                <h3 class="day-label priority-label">
+                  <span>Priority</span>
+                  <span class="day-count">{{ openFeed.priority.length }}</span>
+                </h3>
+                <div class="feed-list">
+                  <BoardCard
+                    v-for="card in openFeed.priority"
+                    :key="card.id"
+                    :card="card"
+                    @open="openCard(card)"
+                    @pause="askPause(card)"
+                    @done="askDone(card)"
+                    @delete="askDelete(card)"
+                  />
+                </div>
+              </section>
+
               <section
-                v-for="group in openDayGroups"
+                v-for="group in openFeed.dayGroups"
                 :key="group.key"
                 class="feed-group"
               >
@@ -643,8 +674,26 @@ function formatArchiveMeta(project) {
                 for a decision.
               </p>
 
+              <section v-if="pausedFeed.priority.length" class="feed-group">
+                <h3 class="day-label priority-label">
+                  <span>Priority</span>
+                  <span class="day-count">{{ pausedFeed.priority.length }}</span>
+                </h3>
+                <div class="feed-list">
+                  <BoardCard
+                    v-for="card in pausedFeed.priority"
+                    :key="card.id"
+                    :card="card"
+                    @open="openCard(card)"
+                    @resume="askResume(card)"
+                    @done="askDone(card)"
+                    @delete="askDelete(card)"
+                  />
+                </div>
+              </section>
+
               <section
-                v-for="group in pausedDayGroups"
+                v-for="group in pausedFeed.dayGroups"
                 :key="group.key"
                 class="feed-group"
               >
@@ -671,8 +720,25 @@ function formatArchiveMeta(project) {
                 Completed cards will show up here.
               </p>
 
+              <section v-if="doneFeed.priority.length" class="feed-group">
+                <h3 class="day-label priority-label">
+                  <span>Priority</span>
+                  <span class="day-count">{{ doneFeed.priority.length }}</span>
+                </h3>
+                <div class="feed-list">
+                  <BoardCard
+                    v-for="card in doneFeed.priority"
+                    :key="card.id"
+                    :card="card"
+                    @open="openCard(card)"
+                    @restore="askRestore(card)"
+                    @delete="askDelete(card)"
+                  />
+                </div>
+              </section>
+
               <section
-                v-for="group in doneDayGroups"
+                v-for="group in doneFeed.dayGroups"
                 :key="group.key"
                 class="feed-group"
               >
@@ -1167,6 +1233,10 @@ function formatArchiveMeta(project) {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.priority-label {
+  color: #ffb4bc;
 }
 
 .day-count {
