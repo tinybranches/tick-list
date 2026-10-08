@@ -43,7 +43,7 @@ const lead = computed(() => {
     return 'Your day on the clock.'
   }
   if (mode.value === 'board') {
-    return 'Paste client notes and images into cards.'
+    return 'Park tasks on the board. Keep project work in one place.'
   }
   return 'Timers with alarms for focused work.'
 })
