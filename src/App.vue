@@ -40,7 +40,7 @@ const heading = computed(() => {
 
 const lead = computed(() => {
   if (mode.value === 'stopwatch') {
-    return 'Track time, laps, and billing.'
+    return 'Your day on the clock.'
   }
   if (mode.value === 'board') {
     return 'Paste client notes and images into cards.'
