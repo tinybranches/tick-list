@@ -1215,6 +1215,7 @@ function formatArchiveMeta(project) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-anchor: none;
   padding-right: 0.15rem;
 }
 
@@ -1274,6 +1275,7 @@ function formatArchiveMeta(project) {
 
 .feed-list :deep(.card) {
   min-height: 0;
+  overflow-anchor: none;
 }
 
 @media (min-width: 761px) {

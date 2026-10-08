@@ -150,6 +150,7 @@ function formatCardDate(ts) {
   border: 1px solid var(--stroke);
   border-radius: 16px;
   background: var(--card);
+  overflow-anchor: none;
   transition: border-color 0.18s ease, background 0.18s ease;
 }
 
@@ -414,12 +415,7 @@ function formatCardDate(ts) {
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
-    color 0.15s ease,
-    transform 0.15s ease;
-}
-
-.action:hover {
-  transform: translateY(-1px);
+    color 0.15s ease;
 }
 
 .action.done {
